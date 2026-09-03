@@ -1,30 +1,24 @@
 @import "tailwindcss";
 
-/* ── Sistema de Cores e Tokens Apple/HIG Humanizado ─────────────────────────
-   Oliva/Musgo:
-   --olive-50:  #F2F5EE (fundo de destaque ultraleve)
-   --olive-100: #E4EBD9 (pills e badges)
-   --olive-200: #C8D6B5 (bordas suaves)
-   --olive-500: #6B7C58 (oliva médio)
-   --olive-600: #59694A (oliva principal — botões e valores positivos)
-   --olive-700: #46543A (oliva escuro para hover)
+/* ── Sistema de Design: Plus Jakarta Sans + Escala de Border-Radius ──────────
+   Border-Radius Spec:
+   - 50px: Pills, badges, tags, botões arredondados (.pill)
+   - 20px: Painéis principais (.panel), cards grandes, sidebar (.sidebar)
+   - 15px: Cards médios (.card-md)
+   - 10px: Inputs (.field-input), botões secundários, cards menores
+   - 4px:  Indicadores e barras de progresso
+   - 2px:  Micro-elementos (dots, líderes)
 
-   Terracota/Tijolo (substitui o vermelho agressivo por um tom nobre e quente):
-   --terra-50:  #FDF4F3 (fundo de alerta leve)
-   --terra-100: #F8D8D5 (borda e halo)
-   --terra-500: #C24138 (débito, atraso e atenção primária)
-   --terra-600: #A8362E (terracota escuro para hover)
-
-   Cinzas e Tipografia:
-   --text-1:    #1D1D1F (texto principal, contraste máximo)
-   --text-2:    #6E6E73 (texto de apoio e legendas médias)
-   --text-3:    #8E8E93 (cinza Apple nativo para dados secundários legíveis)
+   Cores Semânticas:
+   - Oliva nobre:     #59694A (600), #E4EBD9 (100), #C8D6B5 (200), #46543A (700)
+   - Terracota nobre: #C24138 (500), #FDF4F3 (50),  #F8D8D5 (100), #A8362E (600)
+   - Âmbar ocre:      #B86B1B (500), #FEF6EB (50),  #FBE6CB (100)
+   - Textos:          #1D1D1F (Text 1), #6E6E73 (Text 2), #8E8E93 (Text 3)
    ─────────────────────────────────────────────────────────────────────────── */
 
 @layer base {
   :root {
-    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-      "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
+    --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 
     --olive-50:  #F2F5EE;
     --olive-100: #E4EBD9;
@@ -67,51 +61,71 @@
     user-select: text;
     -webkit-user-select: text;
     letter-spacing: -0.01em;
+    font-family: var(--font);
   }
 }
 
-/* ── Painel flutuante branco ─────────────────────────────────────────────────
-   Card elevado sobre o fundo cinza-pérola com sombra multicamada suave       */
+/* ── Painel Flutuante Branco (20px) ───────────────────────────────────────────
+   Sombra multicamada com realce de borda interna sutil (#FFFFFF)            */
 .panel {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 20px;
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.035),
-    0 4px 16px rgba(0, 0, 0, 0.045),
-    0 0 0 1px rgba(0, 0, 0, 0.032);
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 6px 20px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(0, 0, 0, 0.035);
 }
 
-/* ── Sidebar flutuante ───────────────────────────────────────────────────────
-   Efeito fosco limpo com bordas arredondadas e sombra suave                  */
+/* ── Cards Médios (15px) ─────────────────────────────────────────────────────*/
+.card-md {
+  background: #ffffff;
+  border-radius: 15px;
+  border: 1px solid rgba(0, 0, 0, 0.045);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.025);
+}
+
+/* ── Sidebar Flutuante (20px) ────────────────────────────────────────────────*/
 .sidebar {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   border-radius: 20px;
   box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.035),
-    0 8px 32px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.03),
+    0 8px 32px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
     0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
-/* ── Scrollbar ───────────────────────────────────────────────────────────────*/
+/* ── Pill / Badge / Tags (50px) ──────────────────────────────────────────────*/
+.pill {
+  border-radius: 50px;
+}
+
+/* ── Sombra Flutuante de Ícones (Drop shadow 20px 0,0 rgba(0,0,0,0.15)) ──────*/
+.shadow-float {
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Scrollbar Mac ───────────────────────────────────────────────────────────*/
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.12);
-  border-radius: 9999px;
+  border-radius: 50px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.20);
+  background: rgba(0, 0, 0, 0.22);
 }
 
-/* ── Micro-interação de toque ────────────────────────────────────────────────*/
+/* ── Micro-interação tátil ───────────────────────────────────────────────────*/
 .pressable {
   transition: transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.14s ease, background-color 0.15s ease;
 }
 .pressable:active { transform: scale(0.97); opacity: 0.84; }
 
-/* ── Input ────────────────────────────────────────────────────────────────── */
+/* ── Inputs (10px) ───────────────────────────────────────────────────────────*/
 .field-input {
   border: 1.5px solid #E5E5EA;
   background: #FAFAFA;

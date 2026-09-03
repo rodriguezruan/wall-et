@@ -131,10 +131,10 @@ export const GhostButton: React.FC<GhostButtonProps> = ({ children, onClick, ton
   return (
     <button
       onClick={onClick}
-      className="pressable inline-flex items-center gap-1.5 border rounded-[10px] font-medium leading-none transition-all hover:brightness-98"
+      className="pressable inline-flex items-center gap-1.5 border rounded-[50px] font-medium leading-none transition-all hover:brightness-98"
       style={{
         ...style,
-        padding: small ? '5px 10px' : '7px 12px',
+        padding: small ? '5px 12px' : '7px 15px',
         fontSize: small ? 11 : 12,
         cursor: 'pointer',
       }}
@@ -234,7 +234,7 @@ export const CategoryChips: React.FC<CategoryChipsProps> = ({
           key={cat}
           type="button"
           onClick={() => onSelect(cat)}
-          className="pressable px-2.5 py-1 rounded-[8px] text-[11px] font-medium transition-colors"
+          className="pressable px-3 py-1.5 rounded-[50px] text-[11.5px] font-medium transition-colors"
           style={{
             background: active ? '#E4EBD9' : '#F5F5F7',
             color: active ? '#59694A' : '#6E6E73',
@@ -301,7 +301,7 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
       </div>
       <button
         onClick={onNavigateToBills}
-        className="pressable px-3 py-1.5 rounded-[9px] text-[12px] font-semibold text-white shrink-0 hover:opacity-95"
+        className="pressable px-3.5 py-1.5 rounded-[50px] text-[12px] font-semibold text-white shrink-0 hover:opacity-95"
         style={{
           background: isUrgent ? '#C24138' : '#59694A',
           border: 'none',
@@ -344,7 +344,7 @@ export const CheckboxField: React.FC<CheckboxFieldProps> = ({ label, checked, on
 // ─── FormCard ─────────────────────────────────────────────────────────────────
 export const FormCard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div
-    className="rounded-[14px] p-4 mb-4 space-y-3"
+    className="rounded-[15px] p-4 mb-4 space-y-3"
     style={{ background: '#F5F5F7', border: '1px solid #E5E5EA' }}
   >
     {children}
@@ -354,9 +354,9 @@ export const FormCard: React.FC<{ children: React.ReactNode }> = ({ children }) 
 // ─── ProgressBar ──────────────────────────────────────────────────────────────
 interface ProgressBarProps { pct: number; done?: boolean; }
 export const ProgressBar: React.FC<ProgressBarProps> = ({ pct, done }) => (
-  <div className="h-[5px] w-full rounded-full overflow-hidden" style={{ background: '#E5E5EA' }}>
+  <div className="h-[5px] w-full rounded-[4px] overflow-hidden" style={{ background: '#E5E5EA' }}>
     <div
-      className="h-full rounded-full transition-all duration-700 ease-out"
+      className="h-full rounded-[4px] transition-all duration-700 ease-out"
       style={{
         width: `${Math.min(100, pct)}%`,
         background: done ? '#59694A' : '#DCA048',

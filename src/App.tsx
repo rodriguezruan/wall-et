@@ -73,7 +73,7 @@ function AppShell() {
           <div className="px-3 pb-2">
             <button
               onClick={() => openQuickAdd('despesa')}
-              className="pressable w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-[11px] text-[12.5px] font-semibold text-white shadow-sm"
+              className="pressable w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-[50px] text-[12.5px] font-semibold text-white shadow-sm"
               style={{ background: OLIVE, border: 'none', cursor: 'pointer' }}
             >
               <Plus size={14} strokeWidth={2.5} />
@@ -95,14 +95,14 @@ function AppShell() {
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  className="pressable w-full flex items-center gap-2.5 px-3 py-[8.5px] rounded-[10px] text-[12px] font-medium text-left relative"
+                  className="pressable w-full flex items-center gap-2.5 px-3.5 py-[8.5px] rounded-[50px] text-[12px] font-medium text-left relative"
                   style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
                 >
                   {/* Pill ativo */}
                   {active && (
                     <motion.div
                       layoutId="nav-pill"
-                      className="absolute inset-0 rounded-[10px]"
+                      className="absolute inset-0 rounded-[50px]"
                       style={{ background: OLIVE_BG }}
                       transition={{ type: 'spring', stiffness: 480, damping: 40 }}
                     />
@@ -154,39 +154,41 @@ function AppShell() {
       </div>
 
       {/* ── Conteúdo principal ─────────────────────────────────────── */}
-      <main className="flex-1 min-w-0 overflow-y-auto py-6 pr-6">
+      <main className="flex-1 min-w-0 overflow-y-auto py-6 px-4 md:px-7">
+        <div className="max-w-[1620px] mx-auto w-full">
 
-        {/* Título com Ações */}
-        <div className="flex items-center justify-between mb-6">
-          <h1
-            className="text-[22px] font-bold tracking-tight leading-none"
-            style={{ color: '#1D1D1F' }}
-          >
-            {TABS.find(t => t.id === tab)?.label}
-          </h1>
+          {/* Título com Ações */}
+          <div className="flex items-center justify-between mb-6">
+            <h1
+              className="text-[22px] font-bold tracking-tight leading-none"
+              style={{ color: '#1D1D1F' }}
+            >
+              {TABS.find(t => t.id === tab)?.label}
+            </h1>
 
-          <button
-            onClick={() => openQuickAdd('despesa')}
-            className="pressable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] text-[12px] font-semibold text-[#59694A] bg-[#E4EBD9]"
-            style={{ border: 'none', cursor: 'pointer' }}
-          >
-            <Plus size={13} strokeWidth={2.5} />
-            <span>+ Lançamento Rápido</span>
-          </button>
+            <button
+              onClick={() => openQuickAdd('despesa')}
+              className="pressable inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[50px] text-[12px] font-semibold text-[#59694A] bg-[#E4EBD9] hover:brightness-95"
+              style={{ border: 'none', cursor: 'pointer' }}
+            >
+              <Plus size={13} strokeWidth={2.5} />
+              <span>+ Lançamento Rápido</span>
+            </button>
+          </div>
+
+          {/* Conteúdo com transição */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.16, ease: [0.25, 0.46, 0.45, 0.94] }}
+            >
+              {TAB_CONTENT[tab]}
+            </motion.div>
+          </AnimatePresence>
         </div>
-
-        {/* Conteúdo com transição */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.16, ease: [0.25, 0.46, 0.45, 0.94] }}
-          >
-            {TAB_CONTENT[tab]}
-          </motion.div>
-        </AnimatePresence>
       </main>
 
       {/* Modal de Lançamento Rápido */}
