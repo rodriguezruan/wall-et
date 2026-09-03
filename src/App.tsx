@@ -35,34 +35,33 @@ const TAB_CONTENT: Record<TabId, React.ReactNode> = {
   historico:      <HistoricoTab />,
 };
 
-// Verde oliva/musgo principal
+import logoMark from './assets/wallet-mark.png';
+
+// Subtraímos um pouco do cinza genérico para tons refinados
 const OLIVE     = '#59694A';
-const OLIVE_BG  = '#E4EBD9';
+const OLIVE_BG  = '#EBF2E4';
 
 function AppShell() {
   const { tab, setTab, totals, openQuickAdd } = useLedger();
 
   return (
-    <div className="flex min-h-screen" style={{ background: '#F5F5F7' }}>
+    <div className="flex h-screen overflow-hidden bg-[#F5F5F7] text-[#1D1D1F]">
 
-      {/* ── Sidebar flutuante ─────────────────────────────────────── */}
-      <div className="sticky top-0 h-screen p-4 flex flex-col w-[224px] shrink-0">
+      {/* ── Sidebar flutuante ───────────────────────────────────────── */}
+      <div className="p-4 pr-0 flex shrink-0">
         <aside className="sidebar flex-1 flex flex-col overflow-hidden">
 
           {/* Logo/Marca */}
           <div className="px-4 pt-5 pb-3">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
-                style={{ background: OLIVE }}
-              >
-                <Wallet size={15} strokeWidth={1.9} color="white" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-[10px] bg-[#EBF2E4] p-1 flex items-center justify-center shrink-0 border border-[#C8D6B5]">
+                <img src={logoMark} alt="Wall-Et Logo" className="w-full h-full object-contain" />
               </div>
               <div className="leading-none">
-                <div className="text-[14px] font-bold tracking-tight" style={{ color: '#1D1D1F' }}>
-                  Wall-et
+                <div className="text-[14.5px] font-bold tracking-tight text-[#1D1D1F]">
+                  Wall-Et
                 </div>
-                <div className="text-[11px] font-medium mt-0.5" style={{ color: '#8E8E93' }}>
+                <div className="text-[11px] font-medium mt-0.5 text-[#8E8E93]">
                   Livro-caixa
                 </div>
               </div>
