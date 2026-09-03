@@ -2,10 +2,10 @@ import React, { useState, useMemo } from 'react';
 import {
   ChevronLeft, ChevronRight, Plus,
   ArrowDownLeft, ArrowUpRight, CheckCircle2,
-  Calendar as CalendarIcon, Receipt
+  Calendar as CalendarIcon, Receipt, Layers
 } from 'lucide-react';
 import { useLedger } from '../context/LedgerContext';
-import { fmtBRL, fmtDate, todayISO, daysUntil } from '../lib/ledger';
+import { fmtBRL, fmtDate, todayISO, daysUntil, addMonthsISO } from '../lib/ledger';
 import { LedgerRow } from './ui';
 
 const WEEKDAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
@@ -54,16 +54,23 @@ export const RightCalendarPanel: React.FC = () => {
     return days;
   }, [currentYear, currentMonth]);
 
-  // Mapeamento de eventos por data
+  // Mapeamento de eventos por data (incluindo parcelamentos programados)
   const eventsByDate = useMemo(() => {
     const map: Record<string, {
       incomes: typeof state.income;
       bills: typeof state.bills;
       fixedExpenses: typeof state.fixedExpenses;
+      installments: Array<{
+        inst: typeof state.installments[number];
+        parcelNumber: number;
+        totalParcels: number;
+        amount: number;
+        paid: boolean;
+      }>;
     }> = {};
 
     function ensure(d: string) {
-      if (!map[d]) map[d] = { incomes: [], bills: [], fixedExpenses: [] };
+      if (!map[d]) map[d] = { incomes: [], bills: [], fixedExpenses: [], installments: [] };
       return map[d];
     }
 
@@ -71,18 +78,32 @@ export const RightCalendarPanel: React.FC = () => {
     (state.bills || []).forEach(b => { if (b.vencimento) ensure(b.vencimento).bills.push(b); });
     (state.fixedExpenses || []).forEach(g => { if (g.data) ensure(g.data).fixedExpenses.push(g); });
 
+    (state.installments || []).forEach(inst => {
+      for (let k = 1; k <= inst.parcelas; k++) {
+        const dueIso = addMonthsISO(inst.dataInicio, k - 1);
+        ensure(dueIso).installments.push({
+          inst,
+          parcelNumber: k,
+          totalParcels: inst.parcelas,
+          amount: inst.valorParcela,
+          paid: k <= inst.parcelasPagas,
+        });
+      }
+    });
+
     return map;
-  }, [state.income, state.bills, state.fixedExpenses]);
+  }, [state.income, state.bills, state.fixedExpenses, state.installments]);
 
   // Eventos do dia selecionado
   const selectedDayEvents = useMemo(() => {
-    return eventsByDate[selectedDate] || { incomes: [], bills: [], fixedExpenses: [] };
+    return eventsByDate[selectedDate] || { incomes: [], bills: [], fixedExpenses: [], installments: [] };
   }, [eventsByDate, selectedDate]);
 
   const hasEventsOnSelectedDay =
     selectedDayEvents.incomes.length > 0 ||
     selectedDayEvents.bills.length > 0 ||
-    selectedDayEvents.fixedExpenses.length > 0;
+    selectedDayEvents.fixedExpenses.length > 0 ||
+    selectedDayEvents.installments.length > 0;
 
   const selectedDateFormatted = useMemo(() => {
     if (!selectedDate) return '';
@@ -166,9 +187,13 @@ export const RightCalendarPanel: React.FC = () => {
             const isToday = dateStr === todayDateStr;
             const isSelected = dateStr === selectedDate;
 
-            const dayEvents = eventsByDate[dateStr];
-            const hasIncome = dayEvents && dayEvents.incomes.length > 0;
-            const hasExpense = dayEvents && (dayEvents.bills.length > 0 || dayEvents.fixedExpenses.length > 0);
+            const ev = eventsByDate[dateStr];
+            const hasIncome = ev && ev.incomes.length > 0;
+            const hasExpense = ev && (
+              (ev.bills && ev.bills.some(b => !b.pago)) ||
+              (ev.fixedExpenses && ev.fixedExpenses.some(g => !g.pago)) ||
+              (ev.installments && ev.installments.some(p => !p.paid))
+            );
 
             return (
               <button
@@ -298,6 +323,30 @@ export const RightCalendarPanel: React.FC = () => {
                 </div>
                 <span className={`font-bold font-mono shrink-0 ml-2 ${g.pago ? 'text-[#8E8E93] line-through' : 'text-[#C24138]'}`}>
                   -{fmtBRL(g.valor)}
+                </span>
+              </div>
+            ))}
+
+            {selectedDayEvents.installments.map((p, idx) => (
+              <div
+                key={`${p.inst.id}-${p.parcelNumber}-${idx}`}
+                className="flex items-center justify-between p-2.5 rounded-[12px] bg-[#FAF8F5] border border-[#E5E5EA] text-[12px]"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${p.paid ? 'bg-[#EBF2E4] text-[#59694A]' : 'bg-[#F2E5C9] text-[#92661E]'}`}>
+                    {p.paid ? <CheckCircle2 size={11} strokeWidth={2.5} /> : <Layers size={11} strokeWidth={2.5} />}
+                  </div>
+                  <div className="truncate">
+                    <span className="font-medium text-[#1D1D1F] block truncate">
+                      {p.inst.descricao}
+                    </span>
+                    <span className="text-[10.5px] text-[#8E8E93]">
+                      Parcela {p.parcelNumber}/{p.totalParcels} {p.paid ? '· Paga' : ''}
+                    </span>
+                  </div>
+                </div>
+                <span className={`font-bold font-mono shrink-0 ml-2 ${p.paid ? 'text-[#8E8E93] line-through' : 'text-[#92661E]'}`}>
+                  -{fmtBRL(p.amount)}
                 </span>
               </div>
             ))}

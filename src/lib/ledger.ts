@@ -1,4 +1,4 @@
-import type { LedgerState, Totals } from '../types/ledger';
+import type { LedgerState, Totals, Installment } from '../types/ledger';
 
 export const STORAGE_KEY = 'wall-et-ledger-v1';
 
@@ -63,6 +63,80 @@ export function fmtDateShort(iso: string): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
+export interface InstallmentScheduleParcel {
+  numero: number;
+  total: number;
+  dataVencimento: string;
+  mes: string;
+  valor: number;
+  pago: boolean;
+  isCurrentMonth: boolean;
+}
+
+export interface InstallmentSchedule {
+  parcels: InstallmentScheduleParcel[];
+  isDueThisMonth: boolean;
+  isPaidForThisMonth: boolean;
+  amountDueThisMonth: number;
+  proximaParcela: InstallmentScheduleParcel | null;
+}
+
+/**
+ * Retorna as informações de vencimento e cronograma de um parcelamento para um determinado mês (YYYY-MM).
+ * Se a data de início for futura, não afeta o mês atual.
+ */
+export function getInstallmentSchedule(
+  inst: Installment,
+  currentMonthStr: string = todayISO().slice(0, 7)
+): InstallmentSchedule {
+  const parcels: InstallmentScheduleParcel[] = [];
+  let isDueThisMonth = false;
+  let isPaidForThisMonth = false;
+  let amountDueThisMonth = 0;
+
+  for (let k = 1; k <= inst.parcelas; k++) {
+    const dueIso = addMonthsISO(inst.dataInicio, k - 1);
+    const monthStr = dueIso.slice(0, 7);
+    const isPaid = k <= inst.parcelasPagas;
+
+    const parcelObj: InstallmentScheduleParcel = {
+      numero: k,
+      total: inst.parcelas,
+      dataVencimento: dueIso,
+      mes: monthStr,
+      valor: inst.valorParcela,
+      pago: isPaid,
+      isCurrentMonth: monthStr === currentMonthStr,
+    };
+
+    parcels.push(parcelObj);
+
+    // Avalia impacto no mês selecionado:
+    if (monthStr === currentMonthStr) {
+      if (!isPaid) {
+        isDueThisMonth = true;
+        amountDueThisMonth += inst.valorParcela;
+      } else {
+        isPaidForThisMonth = true;
+      }
+    } else if (monthStr < currentMonthStr && !isPaid) {
+      // Parcela anterior atrasada (pendente)
+      isDueThisMonth = true;
+      amountDueThisMonth += inst.valorParcela;
+    }
+  }
+
+  const proximaParcela = parcels.find(p => !p.pago) || null;
+
+  return {
+    parcels,
+    isDueThisMonth,
+    isPaidForThisMonth,
+    amountDueThisMonth,
+    proximaParcela,
+  };
+}
+
 export function computeTotals(state: LedgerState): Totals {
   const totalFaturas = (state.bills || []).filter(b => !b.pago).reduce((s, b) => s + b.valor, 0);
   const faturasPagas = (state.bills || []).filter(b => b.pago).reduce((s, b) => s + b.valor, 0);
@@ -72,9 +146,14 @@ export function computeTotals(state: LedgerState): Totals {
     (s, i) => s + Math.max(0, i.parcelas - i.parcelasPagas) * i.valorParcela,
     0
   );
-  const parcelasMensaisAtivas = (state.installments || [])
-    .filter(i => i.parcelasPagas < i.parcelas)
-    .reduce((s, i) => s + i.valorParcela, 0);
+
+  // Parcelas ativas com vencimento no mês atual (ou em atraso)
+  // Se a primeira parcela começa em um mês futuro, NÃO afeta o mês atual!
+  const currentMonthStr = todayISO().slice(0, 7);
+  const parcelasMensaisAtivas = (state.installments || []).reduce((s, i) => {
+    const schedule = getInstallmentSchedule(i, currentMonthStr);
+    return s + schedule.amountDueThisMonth;
+  }, 0);
 
   // Rendas: todas as rendas (pontuais + recorrentes)
   const rendaRecebida = (state.income || []).filter(r => r.recebido).reduce((s, r) => s + r.valor, 0);
@@ -153,10 +232,14 @@ export function computeCategoryBreakdown(state: LedgerState): CategoryBreakdownI
     map[cat] = (map[cat] || 0) + b.valor;
   });
 
-  // Parcelas ativas
-  (state.installments || []).filter(i => i.parcelasPagas < i.parcelas).forEach(i => {
-    const cat = i.categoria?.trim() || 'Compras';
-    map[cat] = (map[cat] || 0) + i.valorParcela;
+  // Parcelas ativas do mês atual
+  const currentMonthStr = todayISO().slice(0, 7);
+  (state.installments || []).forEach(i => {
+    const schedule = getInstallmentSchedule(i, currentMonthStr);
+    if (schedule.amountDueThisMonth > 0) {
+      const cat = i.categoria?.trim() || 'Compras';
+      map[cat] = (map[cat] || 0) + schedule.amountDueThisMonth;
+    }
   });
 
   const total = Object.values(map).reduce((a, b) => a + b, 0);
