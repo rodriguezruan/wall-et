@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+/* ── Sistema de Cores e Tokens Apple/HIG Humanizado ─────────────────────────
+   Oliva/Musgo:
+   --olive-50:  #F2F5EE (fundo de destaque ultraleve)
+   --olive-100: #E4EBD9 (pills e badges)
+   --olive-200: #C8D6B5 (bordas suaves)
+   --olive-500: #6B7C58 (oliva médio)
+   --olive-600: #59694A (oliva principal — botões e valores positivos)
+   --olive-700: #46543A (oliva escuro para hover)
+
+   Terracota/Tijolo (substitui o vermelho agressivo por um tom nobre e quente):
+   --terra-50:  #FDF4F3 (fundo de alerta leve)
+   --terra-100: #F8D8D5 (borda e halo)
+   --terra-500: #C24138 (débito, atraso e atenção primária)
+   --terra-600: #A8362E (terracota escuro para hover)
+
+   Cinzas e Tipografia:
+   --text-1:    #1D1D1F (texto principal, contraste máximo)
+   --text-2:    #6E6E73 (texto de apoio e legendas médias)
+   --text-3:    #8E8E93 (cinza Apple nativo para dados secundários legíveis)
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+      "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
+
+    --olive-50:  #F2F5EE;
+    --olive-100: #E4EBD9;
+    --olive-200: #C8D6B5;
+    --olive-500: #6B7C58;
+    --olive-600: #59694A;
+    --olive-700: #46543A;
+
+    --terra-50:  #FDF4F3;
+    --terra-100: #F8D8D5;
+    --terra-500: #C24138;
+    --terra-600: #A8362E;
+
+    --text-1:    #1D1D1F;
+    --text-2:    #6E6E73;
+    --text-3:    #8E8E93;
+
+    color-scheme: light;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body {
+    background: #F5F5F7;
+    color: var(--text-1);
+  }
+
+  body {
+    font-family: var(--font);
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.012em;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  input, textarea, select {
+    user-select: text;
+    -webkit-user-select: text;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* ── Painel flutuante branco ─────────────────────────────────────────────────
+   Card elevado sobre o fundo cinza-pérola com sombra multicamada suave       */
+.panel {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.035),
+    0 4px 16px rgba(0, 0, 0, 0.045),
+    0 0 0 1px rgba(0, 0, 0, 0.032);
+}
+
+/* ── Sidebar flutuante ───────────────────────────────────────────────────────
+   Efeito fosco limpo com bordas arredondadas e sombra suave                  */
+.sidebar {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-radius: 20px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.035),
+    0 8px 32px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────────*/
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.20);
+}
+
+/* ── Micro-interação de toque ────────────────────────────────────────────────*/
+.pressable {
+  transition: transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.14s ease, background-color 0.15s ease;
+}
+.pressable:active { transform: scale(0.97); opacity: 0.84; }
+
+/* ── Input ────────────────────────────────────────────────────────────────── */
+.field-input {
+  border: 1.5px solid #E5E5EA;
+  background: #FAFAFA;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13.5px;
+  color: var(--text-1);
+  font-family: var(--font);
+  letter-spacing: -0.01em;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  width: 100%;
+}
+.field-input::placeholder { color: var(--text-3); }
+.field-input:focus {
+  background: #FFFFFF;
+  border-color: var(--olive-500);
+  box-shadow: 0 0 0 3px var(--olive-100);
+}
