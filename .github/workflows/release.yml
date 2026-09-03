@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag da Versão (ex: v0.1.1)'
+        required: false
+        default: 'v0.1.1'
 
 permissions:
   contents: write
@@ -44,7 +49,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
+          tagName: ${{ inputs.version || github.ref_name }}
           releaseName: 'Wall-et v__VERSION__'
           releaseBody: 'Nova versão do Wall-et pronta para uso e atualização automática.'
           releaseDraft: false
