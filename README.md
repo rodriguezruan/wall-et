@@ -1,6 +1,6 @@
 # Wall-et — Controle Financeiro Pessoal para Desktop
 
-Aplicativo desktop minimalista e elegante de finanças pessoais e livro-caixa, projetado seguindo as diretrizes do **Apple Human Interface Guidelines (HIG)** para macOS e Windows.
+Aplicativo desktop minimalista e elegante de finanças pessoais, projetado seguindo as diretrizes do **Apple Human Interface Guidelines (HIG)** para macOS e Windows.
 
 Desenvolvido com **Tauri v2**, **React 19**, **TypeScript** e **Tailwind CSS**.
 

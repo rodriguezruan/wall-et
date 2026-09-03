@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, ShieldCheck, Sparkles, Check } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Check } from 'lucide-react';
 import { useLedger } from '../context/LedgerContext';
 import logoMark from '../assets/wallet-mark.png';
 
@@ -54,16 +54,11 @@ export const OnboardingScreen: React.FC = () => {
             <img src={logoMark} alt="Wall-Et" className="w-full h-full object-contain" />
           </div>
 
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[50px] bg-[#F2F5EE] border border-[#E5E5EA] text-[11px] font-semibold text-[#59694A] mb-2">
-            <Sparkles size={12} strokeWidth={2.5} />
-            <span>Configuração Inicial</span>
-          </div>
-
           <h1 className="text-[24px] md:text-[26px] font-bold tracking-tight text-[#1D1D1F]">
             Boas-vindas ao Wall-Et
           </h1>
           <p className="text-[13px] text-[#6E6E73] mt-1 max-w-sm mx-auto leading-relaxed">
-            Seu livro-caixa pessoal minimalista, elegante e 100% offline. Preencha seus dados para personalizar seu painel.
+            Controle financeiro pessoal minimalista, elegante e 100% offline. Preencha seus dados para personalizar seu painel.
           </p>
         </div>
 

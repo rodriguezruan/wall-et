@@ -1,4 +1,4 @@
-// ─── Tipos do Livro-caixa e Controle Financeiro ─────────────────────────────
+// ─── Tipos de Controle Financeiro Pessoal ─────────────────────────────
 
 export type AccountType = 'corrente' | 'carteira' | 'cartao' | 'poupanca' | 'investimento';
 

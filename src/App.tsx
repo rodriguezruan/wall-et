@@ -66,7 +66,7 @@ function AppShell() {
                   Wall-Et
                 </div>
                 <div className="text-[11px] font-medium mt-0.5 text-[#8E8E93]">
-                  Livro-caixa
+                  Finanças Pessoais
                 </div>
               </div>
             </div>
