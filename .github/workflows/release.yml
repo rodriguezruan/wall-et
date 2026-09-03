@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Rust Stable
@@ -50,5 +50,5 @@ jobs:
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
-          updaterJsonPrefer: 'latest'
+          updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
