@@ -14,6 +14,7 @@ export const DEFAULT_CATEGORIES = [
 ];
 
 export const EMPTY_STATE: LedgerState = {
+  userProfile: { name: '', onboarded: false },
   accounts: [],
   bills: [],
   debts: [],
@@ -102,6 +103,14 @@ export function computeTotals(state: LedgerState): Totals {
   const faturasVencendoHoje = (state.bills || []).filter(b => !b.pago && daysUntil(b.vencimento) === 0).length;
   const faturasVencendo7Dias = (state.bills || []).filter(b => !b.pago && daysUntil(b.vencimento) > 0 && daysUntil(b.vencimento) <= 7).length;
 
+  // Total de obrigações brutas
+  const totalObrigacoes = totalFaturas + totalDividas + totalParcelamentos;
+
+  // Saldo devedor líquido ajustado pela renda/saldo disponível:
+  // Se você adicionar renda, o saldo devedor pendente diminui; se remover a renda, ele volta a aumentar!
+  const recursosDisponiveis = Math.max(0, saldoTotalContas > 0 ? saldoTotalContas : rendaTotalMes);
+  const saldoDevedor = Math.max(0, totalObrigacoes - recursosDisponiveis);
+
   return {
     totalFaturas,
     totalDividas,
@@ -115,7 +124,7 @@ export function computeTotals(state: LedgerState): Totals {
     faturasPagas,
     comprometimentoMensal,
     saldoLivreMensal,
-    saldoDevedor: totalFaturas + totalDividas + totalParcelamentos,
+    saldoDevedor,
     saldoTotalContas,
     faturasAtrasadas,
     faturasVencendoHoje,
@@ -170,6 +179,7 @@ export function loadState(): LedgerState {
       return {
         ...EMPTY_STATE,
         ...parsed,
+        userProfile: parsed.userProfile || { name: 'Ruan', onboarded: true },
         accounts: parsed.accounts || [],
       };
     }

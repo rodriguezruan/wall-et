@@ -74,7 +74,14 @@ export interface HistoryEntry {
   saldoApos: number;
 }
 
+export interface UserProfile {
+  name: string;
+  onboarded: boolean;
+  objetivo?: string;
+}
+
 export interface LedgerState {
+  userProfile?: UserProfile;
   accounts: Account[];
   bills: Bill[];
   debts: Debt[];

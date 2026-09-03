@@ -33,7 +33,7 @@ export const FluxoTab: React.FC = () => {
       accountId: incomeForm.accountId || undefined,
     };
     let next = { ...state, income: [...state.income, item] };
-    next = pushHistory(next, 'renda-nova', `Renda cadastrada: ${item.nome}`, 0);
+    next = pushHistory(next, 'renda-nova', `Renda cadastrada: ${item.nome}`, item.valor);
     persist(next);
     setIncomeForm(null);
   }
@@ -89,7 +89,22 @@ export const FluxoTab: React.FC = () => {
   }
 
   function deleteIncome(id: string) {
-    persist({ ...state, income: state.income.filter(r => r.id !== id) });
+    const item = state.income.find(r => r.id === id);
+    let updatedAccounts = state.accounts || [];
+    if (item?.recebido && item.accountId) {
+      updatedAccounts = updatedAccounts.map(acc =>
+        acc.id === item.accountId ? { ...acc, saldo: acc.saldo - item.valor } : acc
+      );
+    }
+    let next = {
+      ...state,
+      accounts: updatedAccounts,
+      income: state.income.filter(r => r.id !== id),
+    };
+    if (item) {
+      next = pushHistory(next, 'renda-removida', `Renda removida: ${item.nome}`, -item.valor);
+    }
+    persist(next);
     setConfirmingId(null);
   }
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { LedgerState, Totals, TabId, Account } from '../types/ledger';
+import type { LedgerState, Totals, TabId, Account, UserProfile } from '../types/ledger';
 import { loadState, saveState, computeTotals, uid, todayISO } from '../lib/ledger';
 
 interface LedgerContextType {
@@ -22,6 +22,10 @@ interface LedgerContextType {
   addAccount: (account: Omit<Account, 'id'>) => void;
   deleteAccount: (id: string) => void;
   updateAccountBalance: (id: string, novoSaldo: number) => void;
+
+  // User Profile & Onboarding
+  updateUserProfile: (profile: Partial<UserProfile>) => void;
+  completeOnboarding: (name: string, initialBalance?: number, objetivo?: string) => void;
 }
 
 const LedgerContext = createContext<LedgerContextType | undefined>(undefined);
@@ -98,6 +102,46 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }, []);
 
+  const updateUserProfile = useCallback((profile: Partial<UserProfile>) => {
+    setState(prev => {
+      const next = {
+        ...prev,
+        userProfile: {
+          ...(prev.userProfile || { name: 'Ruan', onboarded: true }),
+          ...profile,
+        },
+      };
+      saveState(next);
+      return next;
+    });
+  }, []);
+
+  const completeOnboarding = useCallback((name: string, initialBalance?: number, objetivo?: string) => {
+    setState(prev => {
+      let accounts = [...(prev.accounts || [])];
+      if (initialBalance && initialBalance > 0 && accounts.length === 0) {
+        accounts = [{
+          id: uid(),
+          nome: 'Carteira Principal',
+          instituicao: 'Carteira',
+          tipo: 'carteira',
+          saldo: initialBalance,
+        }];
+      }
+      const next: LedgerState = {
+        ...prev,
+        accounts,
+        userProfile: {
+          name: name.trim() || 'Usuário',
+          onboarded: true,
+          objetivo,
+        },
+      };
+      saveState(next);
+      return next;
+    });
+  }, []);
+
   const totals = React.useMemo(() => computeTotals(state), [state]);
 
   return (
@@ -118,6 +162,8 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addAccount,
         deleteAccount,
         updateAccountBalance,
+        updateUserProfile,
+        completeOnboarding,
       }}
     >
       {children}

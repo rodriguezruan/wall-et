@@ -14,6 +14,8 @@ import {
   Layers, History, Plus, Coins
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import logoMark from './assets/wallet-mark.png';
+import { OnboardingScreen } from './components/OnboardingScreen';
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'resumo',         label: 'Resumo',              icon: Wallet   },
@@ -35,14 +37,16 @@ const TAB_CONTENT: Record<TabId, React.ReactNode> = {
   historico:      <HistoricoTab />,
 };
 
-import logoMark from './assets/wallet-mark.png';
-
 // Subtraímos um pouco do cinza genérico para tons refinados
 const OLIVE     = '#59694A';
 const OLIVE_BG  = '#EBF2E4';
 
 function AppShell() {
-  const { tab, setTab, totals, openQuickAdd } = useLedger();
+  const { state, tab, setTab, totals, openQuickAdd, updateUserProfile } = useLedger();
+
+  if (!state.userProfile?.onboarded) {
+    return <OnboardingScreen />;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F5F5F7] text-[#1D1D1F]">
@@ -140,14 +144,32 @@ function AppShell() {
             })}
           </nav>
 
-          {/* Rodapé */}
+          {/* Rodapé com Perfil do Usuário e Edição de Nome */}
           <div
-            className="px-4 py-3 flex items-center justify-between"
-            style={{ borderTop: '1px solid #E5E5EA' }}
+            className="px-3.5 py-3 border-t border-[#E5E5EA] flex items-center justify-between gap-2"
           >
-            <span className="text-[10.5px] font-medium" style={{ color: '#8E8E93' }}>
-              Salvo localmente (offline)
-            </span>
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-6 h-6 rounded-full bg-[#59694A] text-white flex items-center justify-center text-[10.5px] font-bold shrink-0">
+                {(state.userProfile?.name || 'R').charAt(0).toUpperCase()}
+              </div>
+              <span className="text-[12px] font-semibold text-[#1D1D1F] truncate">
+                {state.userProfile?.name || 'Ruan'}
+              </span>
+            </div>
+
+            <button
+              onClick={() => {
+                const newName = window.prompt('Qual nome deseja exibir no seu painel?', state.userProfile?.name || '');
+                if (newName && newName.trim()) {
+                  updateUserProfile({ name: newName.trim() });
+                }
+              }}
+              className="text-[11px] font-medium text-[#8E8E93] hover:text-[#59694A] transition-colors shrink-0"
+              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              title="Alterar nome"
+            >
+              Editar
+            </button>
           </div>
         </aside>
       </div>

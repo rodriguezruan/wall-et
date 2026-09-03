@@ -4,7 +4,9 @@ import { useLedger } from '../context/LedgerContext';
 import { fmtBRL } from '../lib/ledger';
 
 export const GreetingHeader: React.FC = () => {
-  const { totals, openQuickAdd } = useLedger();
+  const { state, totals, openQuickAdd } = useLedger();
+
+  const userName = state.userProfile?.name?.trim() || 'Ruan';
 
   const formattedToday = useMemo(() => {
     const today = new Date();
@@ -31,7 +33,7 @@ export const GreetingHeader: React.FC = () => {
         </div>
 
         <h1 className="text-[26px] md:text-[28px] font-bold tracking-tight text-[#1D1D1F] leading-tight">
-          Bem-vindo, Ruan!
+          Bem-vindo, {userName}!
         </h1>
 
         <p className="text-[13px] text-[#6E6E73] mt-1 max-w-xl leading-relaxed">

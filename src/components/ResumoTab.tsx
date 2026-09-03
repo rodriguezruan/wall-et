@@ -30,8 +30,13 @@ export const ResumoTab: React.FC = () => {
 
   const chartData = useMemo(() => {
     const pts = (state.history || []).map(h => ({ data: fmtDateShort(h.data), saldo: h.saldoApos }));
-    return pts.length === 0 ? [{ data: fmtDateShort(todayISO()), saldo: 0 }] : pts.slice(-30);
-  }, [state.history]);
+    if (pts.length === 0) {
+      return [{ data: fmtDateShort(todayISO()), saldo: totals.saldoDevedor }];
+    }
+    const sliced = pts.slice(-30);
+    const last = sliced[sliced.length - 1];
+    return [...sliced.slice(0, -1), { data: last.data, saldo: totals.saldoDevedor }];
+  }, [state.history, totals.saldoDevedor]);
 
   const comprometimentoData = useMemo(() => [
     { nome: 'Gastos fixos',    valor: totals.gastosFixosMensais },
