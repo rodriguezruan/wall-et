@@ -88,8 +88,13 @@ export interface Totals {
   totalFaturas: number;
   totalDividas: number;
   totalParcelamentos: number;
+  rendaTotalMes: number;
+  rendaRecebida: number;
+  rendaAReceber: number;
   rendaMensal: number;
   gastosFixosMensais: number;
+  gastosFixosPagos: number;
+  faturasPagas: number;
   comprometimentoMensal: number;
   saldoLivreMensal: number;
   saldoDevedor: number;

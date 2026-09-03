@@ -55,11 +55,14 @@ export const QuickAddModal: React.FC = () => {
         accountId: accountId || undefined,
       };
 
-      // Se houver conta vinculada, deduz o valor do saldo da conta
-      let updatedAccounts = state.accounts;
-      if (accountId) {
-        updatedAccounts = state.accounts.map(acc =>
-          acc.id === accountId ? { ...acc, saldo: acc.saldo - valNum } : acc
+      let updatedAccounts = state.accounts || [];
+      let targetAccountId = accountId;
+      if (!targetAccountId && updatedAccounts.length > 0) {
+        targetAccountId = updatedAccounts[0].id;
+      }
+      if (targetAccountId && updatedAccounts.length > 0) {
+        updatedAccounts = updatedAccounts.map(acc =>
+          acc.id === targetAccountId ? { ...acc, saldo: acc.saldo - valNum } : acc
         );
       }
 
@@ -82,11 +85,15 @@ export const QuickAddModal: React.FC = () => {
         accountId: accountId || undefined,
       };
 
-      // Se houver conta vinculada, soma o valor ao saldo da conta
-      let updatedAccounts = state.accounts;
-      if (accountId) {
-        updatedAccounts = state.accounts.map(acc =>
-          acc.id === accountId ? { ...acc, saldo: acc.saldo + valNum } : acc
+      // Se houver contas, soma o valor ao saldo da conta vinculada (ou primeira conta)
+      let updatedAccounts = state.accounts || [];
+      let targetAccountId = accountId;
+      if (!targetAccountId && updatedAccounts.length > 0) {
+        targetAccountId = updatedAccounts[0].id;
+      }
+      if (targetAccountId && updatedAccounts.length > 0) {
+        updatedAccounts = updatedAccounts.map(acc =>
+          acc.id === targetAccountId ? { ...acc, saldo: acc.saldo + valNum } : acc
         );
       }
 
@@ -95,7 +102,7 @@ export const QuickAddModal: React.FC = () => {
         accounts: updatedAccounts,
         income: [...state.income, income],
       };
-      next = pushHistory(next, 'renda-rapida', `Renda: ${income.nome}`, -valNum);
+      next = pushHistory(next, 'renda-rapida', `Renda: ${income.nome}`, valNum);
       persist(next);
     } else if (tipo === 'fatura') {
       const bill = {

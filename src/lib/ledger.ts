@@ -64,6 +64,8 @@ export function fmtDateShort(iso: string): string {
 
 export function computeTotals(state: LedgerState): Totals {
   const totalFaturas = (state.bills || []).filter(b => !b.pago).reduce((s, b) => s + b.valor, 0);
+  const faturasPagas = (state.bills || []).filter(b => b.pago).reduce((s, b) => s + b.valor, 0);
+
   const totalDividas = (state.debts || []).reduce((s, d) => s + Math.max(0, d.valorTotal - d.valorPago), 0);
   const totalParcelamentos = (state.installments || []).reduce(
     (s, i) => s + Math.max(0, i.parcelas - i.parcelasPagas) * i.valorParcela,
@@ -72,15 +74,28 @@ export function computeTotals(state: LedgerState): Totals {
   const parcelasMensaisAtivas = (state.installments || [])
     .filter(i => i.parcelasPagas < i.parcelas)
     .reduce((s, i) => s + i.valorParcela, 0);
-  const rendaMensal = (state.income || []).filter(r => r.recorrente).reduce((s, r) => s + r.valor, 0);
-  const gastosFixosMensais = (state.fixedExpenses || []).filter(g => g.recorrente).reduce((s, g) => s + g.valor, 0);
-  const comprometimentoMensal = gastosFixosMensais + totalFaturas + parcelasMensaisAtivas;
-  const saldoLivreMensal = rendaMensal - comprometimentoMensal;
 
-  // Saldo total disponível em contas correntes/carteiras (desconsiderando limite de cartão puro)
-  const saldoTotalContas = (state.accounts || []).reduce((acc, a) => {
-    return acc + (a.saldo || 0);
-  }, 0);
+  // Rendas: todas as rendas (pontuais + recorrentes)
+  const rendaRecebida = (state.income || []).filter(r => r.recebido).reduce((s, r) => s + r.valor, 0);
+  const rendaAReceber = (state.income || []).filter(r => !r.recebido).reduce((s, r) => s + r.valor, 0);
+  const rendaTotalMes = rendaRecebida + rendaAReceber;
+
+  // Gastos
+  const gastosFixosMensais = (state.fixedExpenses || []).reduce((s, g) => s + g.valor, 0);
+  const gastosFixosPagos = (state.fixedExpenses || []).filter(g => g.pago).reduce((s, g) => s + g.valor, 0);
+
+  const comprometimentoMensal = gastosFixosMensais + totalFaturas + parcelasMensaisAtivas;
+  const saldoLivreMensal = rendaTotalMes - comprometimentoMensal;
+
+  // Saldo total disponível em contas ou caixa
+  // Se o usuário tiver contas cadastradas, usa a soma das contas.
+  // Se ainda não cadastrou contas bancárias específicas, calcula o saldo real em caixa: total recebido - total pago!
+  let saldoTotalContas = 0;
+  if (state.accounts && state.accounts.length > 0) {
+    saldoTotalContas = state.accounts.reduce((acc, a) => acc + (a.saldo || 0), 0);
+  } else {
+    saldoTotalContas = rendaRecebida - faturasPagas - gastosFixosPagos;
+  }
 
   // Alertas de vencimento
   const faturasAtrasadas = (state.bills || []).filter(b => !b.pago && daysUntil(b.vencimento) < 0).length;
@@ -91,8 +106,13 @@ export function computeTotals(state: LedgerState): Totals {
     totalFaturas,
     totalDividas,
     totalParcelamentos,
-    rendaMensal,
+    rendaTotalMes,
+    rendaRecebida,
+    rendaAReceber,
+    rendaMensal: rendaTotalMes,
     gastosFixosMensais,
+    gastosFixosPagos,
+    faturasPagas,
     comprometimentoMensal,
     saldoLivreMensal,
     saldoDevedor: totalFaturas + totalDividas + totalParcelamentos,

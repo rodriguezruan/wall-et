@@ -61,15 +61,32 @@ export const ResumoTab: React.FC = () => {
 
         {/* Métricas Principais (Cards de 20px) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard label="Saldo Total em Contas" value={totals.saldoTotalContas}      tone="paid"    formatter={fmtBRL} />
-          <MetricCard label="Saldo Devedor Total"   value={totals.saldoDevedor}          tone="debt"    formatter={fmtBRL} />
-          <MetricCard label="Comprometido no Mês"   value={totals.comprometimentoMensal} tone="warn"    formatter={fmtBRL} />
+          <MetricCard label="Saldo Disponível"      value={totals.saldoTotalContas}      tone="paid"    formatter={fmtBRL} />
+          <MetricCard label="Dinheiro a Receber"    value={totals.rendaAReceber}         tone="warn"    formatter={fmtBRL} />
+          <MetricCard label="Comprometido no Mês"   value={totals.comprometimentoMensal} tone="debt"    formatter={fmtBRL} />
           <MetricCard
             label="Sobra Mensal Estimada"
             value={totals.saldoLivreMensal}
             tone={totals.saldoLivreMensal >= 0 ? 'paid' : 'debt'}
             formatter={fmtBRL}
           />
+        </div>
+
+        {/* Faixa Complementar de Balanço Acumulado */}
+        <div className="px-4 py-2.5 rounded-[12px] bg-white border border-[#E5E5EA] flex flex-wrap items-center justify-between gap-3 text-[12px]">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[#6E6E73]">
+            <span>
+              Saldo Devedor Acumulado: <strong className="text-[#C24138] font-mono font-bold">{fmtBRL(totals.saldoDevedor)}</strong>
+            </span>
+            <span className="hidden sm:inline text-[#E5E5EA]">|</span>
+            <span>
+              Faturas em Aberto: <strong className="text-[#1D1D1F] font-mono font-bold">{fmtBRL(totals.totalFaturas)}</strong>
+            </span>
+            <span className="hidden sm:inline text-[#E5E5EA]">|</span>
+            <span>
+              Total de Renda Prevista: <strong className="text-[#59694A] font-mono font-bold">{fmtBRL(totals.rendaTotalMes)}</strong>
+            </span>
+          </div>
         </div>
 
         {/* Relatório Visual: Para onde vai o dinheiro */}

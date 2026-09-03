@@ -10,7 +10,7 @@ import { uid, todayISO, addMonthsISO, fmtBRL, fmtDate, DEFAULT_CATEGORIES } from
 const SEP = { borderBottom: '1px solid #F2F2F7' };
 
 export const FluxoTab: React.FC = () => {
-  const { state, persist, pushHistory, confirmingId, setConfirmingId } = useLedger();
+  const { state, totals, persist, pushHistory, confirmingId, setConfirmingId } = useLedger();
 
   // ── Renda ──────────────────────────────────────────────────────────────────
   const [incomeForm, setIncomeForm] = useState<{
@@ -42,11 +42,17 @@ export const FluxoTab: React.FC = () => {
     const isReceiving = !item.recebido;
     const income = state.income.map(r => r.id === item.id ? { ...r, recebido: !r.recebido } : r);
 
-    // Se tiver conta vinculada, credita ou estorna
-    let updatedAccounts = state.accounts;
-    if (item.accountId) {
-      updatedAccounts = state.accounts.map(acc => {
-        if (acc.id === item.accountId) {
+    // Se tiver contas cadastradas, credita ou estorna na conta vinculada (ou na primeira se não houver vinculada)
+    let updatedAccounts = state.accounts || [];
+    let targetAccountId = item.accountId;
+
+    if (!targetAccountId && updatedAccounts.length > 0) {
+      targetAccountId = updatedAccounts[0].id;
+    }
+
+    if (targetAccountId && updatedAccounts.length > 0) {
+      updatedAccounts = updatedAccounts.map(acc => {
+        if (acc.id === targetAccountId) {
           return {
             ...acc,
             saldo: isReceiving ? acc.saldo + item.valor : acc.saldo - item.valor,
@@ -58,7 +64,7 @@ export const FluxoTab: React.FC = () => {
 
     let next = { ...state, income, accounts: updatedAccounts };
     if (isReceiving) {
-      next = pushHistory(next, 'renda-recebida', `Recebido: ${item.nome}`, -item.valor);
+      next = pushHistory(next, 'renda-recebida', `Recebido: ${item.nome}`, item.valor);
       if (item.recorrente) {
         next = {
           ...next,
@@ -76,6 +82,8 @@ export const FluxoTab: React.FC = () => {
           ]
         };
       }
+    } else {
+      next = pushHistory(next, 'renda-estorno', `Estorno: ${item.nome}`, -item.valor);
     }
     persist(next);
   }
@@ -183,6 +191,34 @@ export const FluxoTab: React.FC = () => {
             </GhostButton>
           )}
         />
+
+        {/* Mini Painel de Rendas: Recebido vs A Receber */}
+        <div className="grid grid-cols-3 gap-2 mb-4 p-3 rounded-[15px] bg-[#FAFAFC] border border-[#E5E5EA]">
+          <div>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#59694A] block mb-0.5">
+              Já Recebido
+            </span>
+            <span className="text-[15px] font-bold font-mono text-[#59694A]">
+              {fmtBRL(totals.rendaRecebida)}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#B86B1B] block mb-0.5">
+              A Receber
+            </span>
+            <span className="text-[15px] font-bold font-mono text-[#B86B1B]">
+              {fmtBRL(totals.rendaAReceber)}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6E6E73] block mb-0.5">
+              Total Previsto
+            </span>
+            <span className="text-[15px] font-bold font-mono text-[#1D1D1F]">
+              {fmtBRL(totals.rendaTotalMes)}
+            </span>
+          </div>
+        </div>
 
         {incomeForm && (
           <FormCard>

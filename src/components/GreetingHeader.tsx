@@ -39,6 +39,8 @@ export const GreetingHeader: React.FC = () => {
             ? `Você possui ${totals.faturasAtrasadas} conta atrasada precisando de atenção.`
             : totals.faturasVencendoHoje > 0
             ? `Você tem ${totals.faturasVencendoHoje} conta com vencimento programado para hoje.`
+            : totals.rendaAReceber > 0
+            ? `Você tem ${fmtBRL(totals.rendaAReceber)} a receber este mês. Saldo disponível atual: ${fmtBRL(totals.saldoTotalContas)}.`
             : totals.saldoLivreMensal >= 0
             ? `Seu fluxo financeiro do mês está positivo com sobra estimada de ${fmtBRL(totals.saldoLivreMensal)}.`
             : `Atenção: seus compromissos superam a renda prevista em ${fmtBRL(Math.abs(totals.saldoLivreMensal))}.`
