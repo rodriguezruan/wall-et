@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LedgerProvider, useLedger } from './context/LedgerContext';
 import { ResumoTab } from './components/ResumoTab';
 import { ContasTab } from './components/ContasTab';
@@ -17,6 +17,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import logoMark from './assets/wallet-mark.png';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { SplashScreen } from './components/SplashScreen';
+import { UpdateNotification } from './components/UpdateNotification';
+import { checkForAppUpdates, type UpdateInfo } from './lib/updater';
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'resumo',         label: 'Resumo',              icon: Wallet   },
@@ -45,6 +47,18 @@ const OLIVE_BG  = '#EBF2E4';
 function AppShell() {
   const { state, tab, setTab, totals, openQuickAdd, updateUserProfile } = useLedger();
   const [showSplash, setShowSplash] = useState(true);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+
+  // Verificação automática de novas versões em segundo plano
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      const info = await checkForAppUpdates();
+      if (info.available) {
+        setUpdateInfo(info);
+      }
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <AnimatePresence mode="wait">
@@ -164,9 +178,29 @@ function AppShell() {
             })}
           </nav>
 
+          {/* Indicador de Versão & Checagem Manual */}
+          <div className="px-3.5 pt-2 pb-1 flex items-center justify-between text-[10px] text-[#8E8E93] border-t border-[#E5E5EA]">
+            <span>v0.1.0</span>
+            <button
+              onClick={async () => {
+                const info = await checkForAppUpdates();
+                if (info.available) {
+                  setUpdateInfo(info);
+                } else {
+                  alert('Você já está na versão mais recente do Wall-Et!');
+                }
+              }}
+              className="hover:text-[#59694A] transition-colors"
+              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              title="Verificar se há novas versões disponíveis"
+            >
+              Verificar atualizações
+            </button>
+          </div>
+
           {/* Rodapé com Perfil do Usuário e Edição de Nome */}
           <div
-            className="px-3.5 py-3 border-t border-[#E5E5EA] flex items-center justify-between gap-2"
+            className="px-3.5 py-2.5 flex items-center justify-between gap-2"
           >
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-6 h-6 rounded-full bg-[#59694A] text-white flex items-center justify-center text-[10.5px] font-bold shrink-0">
@@ -234,6 +268,12 @@ function AppShell() {
 
           {/* Modal de Lançamento Rápido */}
           <QuickAddModal />
+
+          {/* Notificação Flutuante de Atualização */}
+          <UpdateNotification
+            updateInfo={updateInfo}
+            onDismiss={() => setUpdateInfo(null)}
+          />
         </motion.div>
       )}
     </AnimatePresence>
