@@ -2,10 +2,8 @@ import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowDownLeft,
-  CheckCircle2,
   ShieldCheck,
   Calendar,
-  Sparkles,
   ArrowRight,
   TrendingUp
 } from 'lucide-react';
@@ -184,86 +182,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish, duration =
       {/* ── Bloco Central Harmonioso (Hero Unit) ── */}
       <div className="relative z-20 max-w-xl w-full px-6 flex flex-col items-center text-center">
 
-        {/* Círculo Radiante e Squircle da Logo */}
-        <div className="relative mb-5">
-          {/* Anéis decorativos pulsantes concêntricos */}
-          <motion.div
-            initial={{ scale: 0.7, opacity: 0 }}
-            animate={{ scale: [1, 1.15, 1], opacity: [0.35, 0.7, 0.35] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            className="absolute -inset-6 rounded-full bg-gradient-to-tr from-[#77AC8D]/30 to-[#EBF2E4]/40 blur-xl pointer-events-none"
+        {/* Logo em PNG limpa */}
+        <div className="mb-4 flex items-center justify-center">
+          <img
+            src={logoMark}
+            alt="Wall-Et"
+            className="w-28 h-28 md:w-36 md:h-36 object-contain drop-shadow-sm select-none"
           />
-
-          <motion.div
-            initial={{ scale: 0.6, opacity: 0, y: 25 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-24 h-24 md:w-28 md:h-28 rounded-[30px] bg-white/95 backdrop-blur-2xl border border-white p-4 md:p-5 flex items-center justify-center shadow-2xl"
-            style={{
-              boxShadow: '0 25px 50px -12px rgba(89, 105, 74, 0.25), inset 0 1px 0 rgba(255, 255, 255, 1)',
-            }}
-          >
-            <motion.img
-              src={logoMark}
-              alt="Wall-Et"
-              className="w-full h-full object-contain"
-              animate={{ y: [0, -3, 0] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            />
-          </motion.div>
         </div>
 
-        {/* Badge Sutil Superior */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[50px] bg-[#EBF2E4] border border-[#C8D6B5] text-[11px] font-bold text-[#59694A] mb-3"
-        >
-          <Sparkles size={12} strokeWidth={2.5} />
-          <span>Controle Financeiro Descomplicado</span>
-        </motion.div>
-
-        {/* Título Principal Imponente */}
-        <motion.h1
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="text-[34px] md:text-[42px] font-extrabold tracking-tight text-[#1D1D1F] leading-none font-sans"
-        >
+        {/* Título Principal: Maior, fonte mais fina e redonda */}
+        <h1 className="text-[56px] sm:text-[76px] md:text-[92px] font-light tracking-[-0.03em] text-[#1D1D1F] leading-none select-none">
           Wall-Et
-        </motion.h1>
-
-        {/* Descrição Encorpada e Harmoniosa */}
-        <motion.p
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="text-[13.5px] md:text-[15px] text-[#6E6E73] mt-2.5 max-w-md leading-relaxed font-normal"
-        >
-          Seu painel financeiro pessoal elegante, intuitivo e 100% offline para organizar receitas, contas e parcelamentos com tranquilidade.
-        </motion.p>
-
-        {/* Pílulas de Benefícios Chave */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.5 }}
-          className="flex flex-wrap items-center justify-center gap-2 mt-4"
-        >
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[50px] bg-white/80 border border-[#E5E5EA] text-[11px] font-medium text-[#4B564C] shadow-sm">
-            <ShieldCheck size={12} className="text-[#59694A]" />
-            100% no seu PC
-          </span>
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[50px] bg-white/80 border border-[#E5E5EA] text-[11px] font-medium text-[#4B564C] shadow-sm">
-            <TrendingUp size={12} className="text-[#59694A]" />
-            Gráficos e Saldo Real
-          </span>
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[50px] bg-white/80 border border-[#E5E5EA] text-[11px] font-medium text-[#4B564C] shadow-sm">
-            <CheckCircle2 size={12} className="text-[#59694A]" />
-            Sem assinaturas
-          </span>
-        </motion.div>
+        </h1>
 
         {/* ── Barra de Progresso & Ação de Entrada ── */}
         <motion.div
