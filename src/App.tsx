@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { LedgerProvider, useLedger } from './context/LedgerContext';
 import { ResumoTab } from './components/ResumoTab';
 import { ContasTab } from './components/ContasTab';
@@ -16,6 +16,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import logoMark from './assets/wallet-mark.png';
 import { OnboardingScreen } from './components/OnboardingScreen';
+import { SplashScreen } from './components/SplashScreen';
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'resumo',         label: 'Resumo',              icon: Wallet   },
@@ -43,13 +44,32 @@ const OLIVE_BG  = '#EBF2E4';
 
 function AppShell() {
   const { state, tab, setTab, totals, openQuickAdd, updateUserProfile } = useLedger();
-
-  if (!state.userProfile?.onboarded) {
-    return <OnboardingScreen />;
-  }
+  const [showSplash, setShowSplash] = useState(true);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F5F5F7] text-[#1D1D1F]">
+    <AnimatePresence mode="wait">
+      {showSplash ? (
+        <SplashScreen key="splash" onFinish={() => setShowSplash(false)} />
+      ) : !state.userProfile?.onboarded ? (
+        <motion.div
+          key="onboarding"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.98 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full h-full"
+        >
+          <OnboardingScreen />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="dashboard"
+          initial={{ opacity: 0, scale: 0.99 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.99 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          className="flex h-screen overflow-hidden bg-[#F5F5F7] text-[#1D1D1F]"
+        >
 
       {/* ── Sidebar flutuante ───────────────────────────────────────── */}
       <div className="p-4 pr-0 flex shrink-0">
@@ -212,9 +232,11 @@ function AppShell() {
         </div>
       </main>
 
-      {/* Modal de Lançamento Rápido */}
-      <QuickAddModal />
-    </div>
+          {/* Modal de Lançamento Rápido */}
+          <QuickAddModal />
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
