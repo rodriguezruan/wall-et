@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import lottie from 'lottie-web/build/player/lottie_light';
 import {
   ArrowDownLeft,
   ShieldCheck,
@@ -7,19 +8,36 @@ import {
   ArrowRight,
   TrendingUp
 } from 'lucide-react';
-import logoMark from '../assets/wallet-mark.png';
 
 interface SplashScreenProps {
   onFinish: () => void;
-  duration?: number; // ms, default 2800ms
+  duration?: number; // ms, default 3600ms
 }
 
-export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish, duration = 2800 }) => {
+export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish, duration = 3600 }) => {
+  const lottieRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
+    let anim: ReturnType<typeof lottie.loadAnimation> | null = null;
+    if (lottieRef.current) {
+      anim = lottie.loadAnimation({
+        container: lottieRef.current,
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: '/walletmotion.json',
+      });
+      anim.setSpeed(1.1);
+    }
+
     const timer = setTimeout(() => {
       onFinish();
     }, duration);
-    return () => clearTimeout(timer);
+
+    return () => {
+      clearTimeout(timer);
+      if (anim) anim.destroy();
+    };
   }, [onFinish, duration]);
 
   return (
@@ -182,13 +200,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish, duration =
       {/* ── Bloco Central Harmonioso (Hero Unit) ── */}
       <div className="relative z-20 max-w-xl w-full px-6 flex flex-col items-center text-center">
 
-        {/* Logo em PNG limpa */}
-        <div className="mb-4 flex items-center justify-center">
-          <img
-            src={logoMark}
-            alt="Wall-Et"
-            className="w-28 h-28 md:w-36 md:h-36 object-contain drop-shadow-sm select-none"
-          />
+        {/* Animação Motion (Lottie) do Wall-Et */}
+        <div className="w-full max-w-[340px] sm:max-w-[420px] aspect-[16/9] flex items-center justify-center -mb-3">
+          <div ref={lottieRef} className="w-full h-full" />
         </div>
 
         {/* Título Principal: Maior, fonte mais fina e redonda */}
