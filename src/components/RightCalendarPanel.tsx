@@ -1,42 +1,55 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ChevronLeft, ChevronRight, Plus,
   ArrowDownLeft, ArrowUpRight, CheckCircle2,
   Calendar as CalendarIcon, Receipt, Layers
 } from 'lucide-react';
 import { useLedger } from '../context/LedgerContext';
-import { fmtBRL, fmtDate, todayISO, daysUntil, addMonthsISO } from '../lib/ledger';
+import { fmtBRL, fmtDate, todayISO, daysUntil, addMonthsISO, fmtMonthYear } from '../lib/ledger';
 import { LedgerRow } from './ui';
 
 const WEEKDAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
 export const RightCalendarPanel: React.FC = () => {
-  const { state, totals, setTab, openQuickAdd } = useLedger();
+  const {
+    state,
+    totals,
+    setTab,
+    openQuickAdd,
+    selectedMonth,
+    nextMonth,
+    prevMonth,
+    resetToCurrentMonth,
+  } = useLedger();
 
-  const today = useMemo(() => new Date(), []);
   const todayDateStr = useMemo(() => todayISO(), []);
+  const currentMonthISO = useMemo(() => todayISO().slice(0, 7), []);
 
-  // Navegação de mês
-  const [viewDate, setViewDate] = useState(() => new Date());
+  const [selYear, selMonth] = useMemo(() => {
+    const parts = (selectedMonth || currentMonthISO).split('-').map(Number);
+    return [parts[0] || new Date().getFullYear(), parts[1] || (new Date().getMonth() + 1)];
+  }, [selectedMonth, currentMonthISO]);
+
+  const currentYear = selYear;
+  const currentMonth = selMonth - 1;
+
   // Dia selecionado
   const [selectedDate, setSelectedDate] = useState<string>(todayDateStr);
 
-  const currentYear = viewDate.getFullYear();
-  const currentMonth = viewDate.getMonth();
+  useEffect(() => {
+    if (selectedDate.slice(0, 7) !== selectedMonth) {
+      if (selectedMonth === currentMonthISO) {
+        setSelectedDate(todayDateStr);
+      } else {
+        setSelectedDate(`${selectedMonth}-01`);
+      }
+    }
+  }, [selectedMonth, currentMonthISO, todayDateStr, selectedDate]);
 
-  const monthName = useMemo(() => {
-    const name = viewDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    return name.charAt(0).toUpperCase() + name.slice(1);
-  }, [viewDate]);
+  const monthName = useMemo(() => fmtMonthYear(selectedMonth), [selectedMonth]);
 
-  function prevMonth() {
-    setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-  }
-  function nextMonth() {
-    setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-  }
   function resetToToday() {
-    setViewDate(new Date());
+    resetToCurrentMonth();
     setSelectedDate(todayDateStr);
   }
 
@@ -134,7 +147,7 @@ export const RightCalendarPanel: React.FC = () => {
             <span className="text-[13.5px] font-bold text-[#1D1D1F] tracking-tight">
               {monthName}
             </span>
-            {viewDate.getMonth() !== today.getMonth() && (
+            {selectedMonth !== currentMonthISO && (
               <button
                 onClick={resetToToday}
                 className="text-[11px] font-medium text-[#59694A] hover:underline px-2 py-0.5 rounded-[50px] bg-[#EBF2E4]"

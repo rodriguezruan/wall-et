@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { LedgerState, Totals, TabId, Account, UserProfile } from '../types/ledger';
-import { loadState, saveState, computeTotals, uid, todayISO } from '../lib/ledger';
+import { loadState, saveState, computeTotals, uid, todayISO, getAvailableMonths, addMonthsToMonthStr } from '../lib/ledger';
 
 interface LedgerContextType {
   state: LedgerState;
@@ -12,6 +12,14 @@ interface LedgerContextType {
   confirmingId: string | null;
   setConfirmingId: (id: string | null) => void;
   
+  // Month Filtering & Navigation
+  selectedMonth: string; // ISO YYYY-MM
+  setSelectedMonth: (m: string) => void;
+  availableMonths: string[];
+  nextMonth: () => void;
+  prevMonth: () => void;
+  resetToCurrentMonth: () => void;
+
   // Quick Add Modal
   isQuickAddOpen: boolean;
   quickAddInitialType: 'despesa' | 'renda' | 'fatura';
@@ -52,22 +60,6 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setState(next);
     saveState(next);
   }, []);
-
-  const pushHistory = useCallback(
-    (base: LedgerState, tipo: string, descricao: string, valor: number): LedgerState => {
-      const totals = computeTotals(base);
-      const entry = {
-        id: uid(),
-        data: todayISO(),
-        tipo,
-        descricao,
-        valor,
-        saldoApos: totals.saldoDevedor,
-      };
-      return { ...base, history: [...(base.history || []), entry] };
-    },
-    []
-  );
 
   // Accounts
   const addAccount = useCallback((accData: Omit<Account, 'id'>) => {
@@ -142,7 +134,40 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }, []);
 
-  const totals = React.useMemo(() => computeTotals(state), [state]);
+  // Month selection
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => todayISO().slice(0, 7));
+
+  const nextMonth = useCallback(() => {
+    setSelectedMonth(prev => addMonthsToMonthStr(prev, 1));
+  }, []);
+
+  const prevMonth = useCallback(() => {
+    setSelectedMonth(prev => addMonthsToMonthStr(prev, -1));
+  }, []);
+
+  const resetToCurrentMonth = useCallback(() => {
+    setSelectedMonth(todayISO().slice(0, 7));
+  }, []);
+
+  const availableMonths = React.useMemo(() => getAvailableMonths(state), [state]);
+
+  const totals = React.useMemo(() => computeTotals(state, selectedMonth), [state, selectedMonth]);
+
+  const pushHistory = useCallback(
+    (base: LedgerState, tipo: string, descricao: string, valor: number): LedgerState => {
+      const currentTotals = computeTotals(base, selectedMonth);
+      const entry = {
+        id: uid(),
+        data: todayISO(),
+        tipo,
+        descricao,
+        valor,
+        saldoApos: currentTotals.saldoDevedor,
+      };
+      return { ...base, history: [...(base.history || []), entry] };
+    },
+    [selectedMonth]
+  );
 
   return (
     <LedgerContext.Provider
@@ -155,6 +180,12 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         pushHistory,
         confirmingId,
         setConfirmingId,
+        selectedMonth,
+        setSelectedMonth,
+        availableMonths,
+        nextMonth,
+        prevMonth,
+        resetToCurrentMonth,
         isQuickAddOpen,
         quickAddInitialType,
         openQuickAdd,

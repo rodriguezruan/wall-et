@@ -1,16 +1,70 @@
-import React, { useState } from 'react';
-import { Plus, PlusCircle, MinusCircle, Check, Trash2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, PlusCircle, MinusCircle, Check, Trash2, Calendar } from 'lucide-react';
 import { useLedger } from '../context/LedgerContext';
 import {
   SectionHeader, GhostButton, LedgerRow, FormCard,
   TextField, SelectField, CheckboxField, ConfirmDelete, IconButton, CategoryChips
 } from './ui';
-import { uid, todayISO, addMonthsISO, fmtBRL, fmtDate, DEFAULT_CATEGORIES } from '../lib/ledger';
+import { uid, todayISO, addMonthsISO, fmtBRL, fmtDate, fmtMonthYear, DEFAULT_CATEGORIES } from '../lib/ledger';
 
-const SEP = { borderBottom: '1px solid #F2F2F7' };
+interface MonthGroup<T> {
+  monthKey: string;
+  items: T[];
+  total: number;
+  paidOrReceived: number;
+  pending: number;
+}
+
+function groupByMonth<T extends { data: string; valor: number }>(
+  items: T[],
+  isPaidOrReceived: (item: T) => boolean
+): MonthGroup<T>[] {
+  const groupsMap = new Map<string, T[]>();
+  const sorted = [...items].sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+
+  sorted.forEach(item => {
+    const key = (item.data || todayISO()).slice(0, 7);
+    if (!groupsMap.has(key)) groupsMap.set(key, []);
+    groupsMap.get(key)!.push(item);
+  });
+
+  const result: MonthGroup<T>[] = [];
+  groupsMap.forEach((groupItems, monthKey) => {
+    const total = groupItems.reduce((s, i) => s + i.valor, 0);
+    const paidOrReceived = groupItems.filter(isPaidOrReceived).reduce((s, i) => s + i.valor, 0);
+    const pending = total - paidOrReceived;
+    result.push({ monthKey, items: groupItems, total, paidOrReceived, pending });
+  });
+
+  return result;
+}
 
 export const FluxoTab: React.FC = () => {
-  const { state, totals, persist, pushHistory, confirmingId, setConfirmingId } = useLedger();
+  const {
+    state,
+    totals,
+    persist,
+    pushHistory,
+    confirmingId,
+    setConfirmingId,
+    selectedMonth,
+    availableMonths,
+  } = useLedger();
+
+  const [filterMonth, setFilterMonth] = useState<string>('todos');
+  const currentMonthISO = useMemo(() => todayISO().slice(0, 7), []);
+
+  const incomeGroups = useMemo(() => {
+    const all = groupByMonth(state.income || [], r => r.recebido);
+    if (filterMonth === 'todos') return all;
+    return all.filter(g => g.monthKey === filterMonth);
+  }, [state.income, filterMonth]);
+
+  const expenseGroups = useMemo(() => {
+    const all = groupByMonth(state.fixedExpenses || [], g => g.pago);
+    if (filterMonth === 'todos') return all;
+    return all.filter(g => g.monthKey === filterMonth);
+  }, [state.fixedExpenses, filterMonth]);
 
   // ── Renda ──────────────────────────────────────────────────────────────────
   const [incomeForm, setIncomeForm] = useState<{
@@ -186,6 +240,44 @@ export const FluxoTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      {/* Barra de Filtro de Mês */}
+      <div className="panel px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Calendar size={15} className="text-[#59694A]" />
+          <span className="text-[12px] font-bold uppercase tracking-wider text-[#1D1D1F]">
+            Visualização por Mês:
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar text-[12px]">
+          <button
+            onClick={() => setFilterMonth('todos')}
+            className={`pressable px-3 py-1.5 rounded-[50px] font-semibold text-[12px] transition-all cursor-pointer ${
+              filterMonth === 'todos'
+                ? 'bg-[#59694A] text-white shadow-xs'
+                : 'bg-[#F2F2F7] text-[#6E6E73] hover:text-[#1D1D1F]'
+            }`}
+            style={{ border: 'none' }}
+          >
+            Todos os Meses
+          </button>
+          {availableMonths.map(m => (
+            <button
+              key={m}
+              onClick={() => setFilterMonth(m)}
+              className={`pressable px-3 py-1.5 rounded-[50px] font-semibold text-[12px] transition-all cursor-pointer shrink-0 ${
+                filterMonth === m
+                  ? 'bg-[#59694A] text-white shadow-xs'
+                  : 'bg-[#F2F2F7] text-[#6E6E73] hover:text-[#1D1D1F]'
+              }`}
+              style={{ border: 'none' }}
+            >
+              {fmtMonthYear(m)} {m === currentMonthISO ? '· Atual' : ''}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Renda */}
       <div className="panel p-5">
         <SectionHeader
@@ -227,7 +319,7 @@ export const FluxoTab: React.FC = () => {
           </div>
           <div>
             <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6E6E73] block mb-0.5">
-              Total Previsto
+              Total Previsto ({fmtMonthYear(selectedMonth)})
             </span>
             <span className="text-[15px] font-bold font-mono text-[#1D1D1F]">
               {fmtBRL(totals.rendaTotalMes)}
@@ -294,45 +386,101 @@ export const FluxoTab: React.FC = () => {
           </FormCard>
         )}
 
-        {state.income.length === 0 && !incomeForm ? (
-          <p style={{ fontSize: 12.5, color: '#8E8E93', padding: '8px 0' }}>
-            Nenhuma renda cadastrada ainda.
+        {incomeGroups.length === 0 && !incomeForm ? (
+          <p style={{ fontSize: 12.5, color: '#8E8E93', padding: '12px 0' }}>
+            Nenhuma renda cadastrada {filterMonth !== 'todos' ? `para ${fmtMonthYear(filterMonth)}` : 'ainda'}.
           </p>
         ) : (
-          <div style={{ borderTop: '1px solid #F2F2F7' }}>
-            {[...state.income].sort((a, b) => a.data.localeCompare(b.data)).map(r => {
-              const account = state.accounts?.find(a => a.id === r.accountId);
-              return (
-                <div key={r.id} style={SEP}>
-                  <LedgerRow
-                    label={`${r.nome}${r.recorrente ? ' ↻' : ''}`}
-                    sub={`${fmtDate(r.data)}${r.recebido ? ' · recebido' : ' · previsto'}${account ? ` · (${account.instituicao})` : ''}`}
-                    value={fmtBRL(r.valor)}
-                    tone={r.recebido ? 'paid' : 'default'}
-                    strong={!r.recebido}
-                    right={
-                      confirmingId === r.id ? (
-                        <ConfirmDelete onConfirm={() => deleteIncome(r.id)} onCancel={() => setConfirmingId(null)} />
-                      ) : (
-                        <span className="flex gap-0.5">
-                          <IconButton
-                            icon={Check}
-                            onClick={() => toggleIncomeReceived(r)}
-                            active={r.recebido}
-                            title={r.recebido ? 'Reabrir renda' : 'Marcar como recebido'}
-                          />
-                          <IconButton
-                            icon={Trash2}
-                            onClick={() => setConfirmingId(r.id)}
-                            danger
-                          />
+          <div className="space-y-5 pt-2">
+            {incomeGroups.map(group => (
+              <div key={group.monthKey} className="space-y-1">
+                {/* Separador Visual de Mês */}
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-[12px] bg-[#F7F9F4] border border-[#D7E2CD]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-[6px] bg-[#EBF2E4] flex items-center justify-center text-[#59694A] shrink-0">
+                      <Calendar size={13} />
+                    </div>
+                    <span className="text-[13px] font-bold text-[#1D1D1F] tracking-tight">
+                      {fmtMonthYear(group.monthKey)}
+                    </span>
+                    {group.monthKey === currentMonthISO && (
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider bg-[#59694A] text-white px-2 py-0.5 rounded-[50px]">
+                        Mês Atual
+                      </span>
+                    )}
+                    <span className="text-[11px] text-[#8E8E93]">
+                      · {group.items.length} {group.items.length === 1 ? 'lançamento' : 'lançamentos'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-[11.5px]">
+                    <div>
+                      <span className="text-[9.5px] font-semibold uppercase tracking-wider text-[#6E6E73] block">
+                        Previsto
+                      </span>
+                      <span className="font-bold font-mono text-[#1D1D1F]">
+                        {fmtBRL(group.total)}
+                      </span>
+                    </div>
+                    <div className="border-l border-[#D7E2CD] pl-3">
+                      <span className="text-[9.5px] font-semibold uppercase tracking-wider text-[#59694A] block">
+                        Recebido
+                      </span>
+                      <span className="font-bold font-mono text-[#59694A]">
+                        {fmtBRL(group.paidOrReceived)}
+                      </span>
+                    </div>
+                    {group.pending > 0 && (
+                      <div className="border-l border-[#D7E2CD] pl-3">
+                        <span className="text-[9.5px] font-semibold uppercase tracking-wider text-[#B86B1B] block">
+                          A Receber
                         </span>
-                      )
-                    }
-                  />
+                        <span className="font-bold font-mono text-[#B86B1B]">
+                          {fmtBRL(group.pending)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              );
-            })}
+
+                {/* Linhas de Renda daquele Mês */}
+                <div className="divide-y divide-[#F2F2F7]">
+                  {group.items.map(r => {
+                    const account = state.accounts?.find(a => a.id === r.accountId);
+                    return (
+                      <div key={r.id}>
+                        <LedgerRow
+                          label={`${r.nome}${r.recorrente ? ' ↻' : ''}`}
+                          sub={`${fmtDate(r.data)}${r.recebido ? ' · recebido' : ' · previsto'}${account ? ` · (${account.instituicao})` : ''}`}
+                          value={fmtBRL(r.valor)}
+                          tone={r.recebido ? 'paid' : 'default'}
+                          strong={!r.recebido}
+                          right={
+                            confirmingId === r.id ? (
+                              <ConfirmDelete onConfirm={() => deleteIncome(r.id)} onCancel={() => setConfirmingId(null)} />
+                            ) : (
+                              <span className="flex gap-0.5">
+                                <IconButton
+                                  icon={Check}
+                                  onClick={() => toggleIncomeReceived(r)}
+                                  active={r.recebido}
+                                  title={r.recebido ? 'Reabrir renda' : 'Marcar como recebido'}
+                                />
+                                <IconButton
+                                  icon={Trash2}
+                                  onClick={() => setConfirmingId(r.id)}
+                                  danger
+                                />
+                              </span>
+                            )
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -430,45 +578,101 @@ export const FluxoTab: React.FC = () => {
           </FormCard>
         )}
 
-        {state.fixedExpenses.length === 0 && !expenseForm ? (
-          <p style={{ fontSize: 12.5, color: '#8E8E93', padding: '8px 0' }}>
-            Nenhum gasto fixo cadastrado ainda.
+        {expenseGroups.length === 0 && !expenseForm ? (
+          <p style={{ fontSize: 12.5, color: '#8E8E93', padding: '12px 0' }}>
+            Nenhum gasto fixo cadastrado {filterMonth !== 'todos' ? `para ${fmtMonthYear(filterMonth)}` : 'ainda'}.
           </p>
         ) : (
-          <div style={{ borderTop: '1px solid #F2F2F7' }}>
-            {[...state.fixedExpenses].sort((a, b) => a.data.localeCompare(b.data)).map(g => {
-              const account = state.accounts?.find(a => a.id === g.accountId);
-              return (
-                <div key={g.id} style={SEP}>
-                  <LedgerRow
-                    label={`${g.nome}${g.recorrente ? ' ↻' : ''}`}
-                    sub={`${g.categoria || 'Geral'} · dia ${fmtDate(g.data)}${g.pago ? ' · pago' : ' · pendente'}${account ? ` · (${account.instituicao})` : ''}`}
-                    value={fmtBRL(g.valor)}
-                    tone={g.pago ? 'paid' : 'debt'}
-                    strong={!g.pago}
-                    right={
-                      confirmingId === g.id ? (
-                        <ConfirmDelete onConfirm={() => deleteExpense(g.id)} onCancel={() => setConfirmingId(null)} />
-                      ) : (
-                        <span className="flex gap-0.5">
-                          <IconButton
-                            icon={Check}
-                            onClick={() => toggleExpensePaid(g)}
-                            active={g.pago}
-                            title={g.pago ? 'Reabrir gasto' : 'Marcar como pago'}
-                          />
-                          <IconButton
-                            icon={Trash2}
-                            onClick={() => setConfirmingId(g.id)}
-                            danger
-                          />
+          <div className="space-y-5 pt-2">
+            {expenseGroups.map(group => (
+              <div key={group.monthKey} className="space-y-1">
+                {/* Separador Visual de Mês */}
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-[12px] bg-[#F7F9F4] border border-[#D7E2CD]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-[6px] bg-[#EBF2E4] flex items-center justify-center text-[#59694A] shrink-0">
+                      <Calendar size={13} />
+                    </div>
+                    <span className="text-[13px] font-bold text-[#1D1D1F] tracking-tight">
+                      {fmtMonthYear(group.monthKey)}
+                    </span>
+                    {group.monthKey === currentMonthISO && (
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider bg-[#59694A] text-white px-2 py-0.5 rounded-[50px]">
+                        Mês Atual
+                      </span>
+                    )}
+                    <span className="text-[11px] text-[#8E8E93]">
+                      · {group.items.length} {group.items.length === 1 ? 'lançamento' : 'lançamentos'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-[11.5px]">
+                    <div>
+                      <span className="text-[9.5px] font-semibold uppercase tracking-wider text-[#6E6E73] block">
+                        Total
+                      </span>
+                      <span className="font-bold font-mono text-[#1D1D1F]">
+                        {fmtBRL(group.total)}
+                      </span>
+                    </div>
+                    <div className="border-l border-[#D7E2CD] pl-3">
+                      <span className="text-[9.5px] font-semibold uppercase tracking-wider text-[#59694A] block">
+                        Pago
+                      </span>
+                      <span className="font-bold font-mono text-[#59694A]">
+                        {fmtBRL(group.paidOrReceived)}
+                      </span>
+                    </div>
+                    {group.pending > 0 && (
+                      <div className="border-l border-[#D7E2CD] pl-3">
+                        <span className="text-[9.5px] font-semibold uppercase tracking-wider text-[#C24138] block">
+                          Pendente
                         </span>
-                      )
-                    }
-                  />
+                        <span className="font-bold font-mono text-[#C24138]">
+                          {fmtBRL(group.pending)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              );
-            })}
+
+                {/* Linhas de Gastos Fixos daquele Mês */}
+                <div className="divide-y divide-[#F2F2F7]">
+                  {group.items.map(g => {
+                    const account = state.accounts?.find(a => a.id === g.accountId);
+                    return (
+                      <div key={g.id}>
+                        <LedgerRow
+                          label={`${g.nome}${g.recorrente ? ' ↻' : ''}`}
+                          sub={`${g.categoria || 'Geral'} · dia ${fmtDate(g.data)}${g.pago ? ' · pago' : ' · pendente'}${account ? ` · (${account.instituicao})` : ''}`}
+                          value={fmtBRL(g.valor)}
+                          tone={g.pago ? 'paid' : 'debt'}
+                          strong={!g.pago}
+                          right={
+                            confirmingId === g.id ? (
+                              <ConfirmDelete onConfirm={() => deleteExpense(g.id)} onCancel={() => setConfirmingId(null)} />
+                            ) : (
+                              <span className="flex gap-0.5">
+                                <IconButton
+                                  icon={Check}
+                                  onClick={() => toggleExpensePaid(g)}
+                                  active={g.pago}
+                                  title={g.pago ? 'Reabrir gasto' : 'Marcar como pago'}
+                                />
+                                <IconButton
+                                  icon={Trash2}
+                                  onClick={() => setConfirmingId(g.id)}
+                                  danger
+                                />
+                              </span>
+                            )
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

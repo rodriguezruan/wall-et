@@ -1,16 +1,36 @@
-import React, { useState } from 'react';
-import { Plus, Check, Trash2, Receipt } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Check, Trash2, Receipt, Calendar } from 'lucide-react';
 import { useLedger } from '../context/LedgerContext';
 import {
   SectionHeader, GhostButton, LedgerRow, FormCard,
   TextField, SelectField, CheckboxField, ConfirmDelete, IconButton, CategoryChips
 } from './ui';
-import { uid, todayISO, addMonthsISO, daysUntil, fmtBRL, fmtDate, DEFAULT_CATEGORIES } from '../lib/ledger';
+import { uid, todayISO, addMonthsISO, daysUntil, fmtBRL, fmtDate, fmtMonthYear, DEFAULT_CATEGORIES } from '../lib/ledger';
+import type { Bill } from '../types/ledger';
 
-const SEP = { borderBottom: '1px solid #F2F2F7' };
+interface BillMonthGroup {
+  monthKey: string;
+  items: Bill[];
+  total: number;
+  paid: number;
+  open: number;
+}
 
 export const FaturasTab: React.FC = () => {
-  const { state, totals, persist, pushHistory, confirmingId, setConfirmingId } = useLedger();
+  const {
+    state,
+    totals,
+    persist,
+    pushHistory,
+    confirmingId,
+    setConfirmingId,
+    selectedMonth,
+    availableMonths,
+  } = useLedger();
+
+  const [filterMonth, setFilterMonth] = useState<string>('todos');
+  const currentMonthISO = useMemo(() => todayISO().slice(0, 7), []);
+
   const [billForm, setBillForm] = useState<{
     nome: string;
     categoria: string;
@@ -19,6 +39,29 @@ export const FaturasTab: React.FC = () => {
     recorrente: boolean;
     accountId: string;
   } | null>(null);
+
+  const billGroups = useMemo(() => {
+    const groupsMap = new Map<string, typeof state.bills>();
+    const sorted = [...(state.bills || [])].sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || ''));
+
+    sorted.forEach(b => {
+      const key = (b.vencimento || todayISO()).slice(0, 7);
+      if (!groupsMap.has(key)) groupsMap.set(key, []);
+      groupsMap.get(key)!.push(b);
+    });
+
+    const result: BillMonthGroup[] = [];
+    groupsMap.forEach((items, monthKey) => {
+      if (filterMonth === 'todos' || filterMonth === monthKey) {
+        const total = items.reduce((s, b) => s + b.valor, 0);
+        const paid = items.filter(b => b.pago).reduce((s, b) => s + b.valor, 0);
+        const open = total - paid;
+        result.push({ monthKey, items, total, paid, open });
+      }
+    });
+
+    return result;
+  }, [state.bills, filterMonth]);
 
   function saveBill() {
     if (!billForm?.nome.trim() || !billForm.valor || !billForm.vencimento) return;
@@ -90,12 +133,49 @@ export const FaturasTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      {/* Barra de Filtro de Mês */}
+      <div className="panel px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Calendar size={15} className="text-[#59694A]" />
+          <span className="text-[12px] font-bold uppercase tracking-wider text-[#1D1D1F]">
+            Visualização por Mês:
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar text-[12px]">
+          <button
+            onClick={() => setFilterMonth('todos')}
+            className={`pressable px-3 py-1.5 rounded-[50px] font-semibold text-[12px] transition-all cursor-pointer ${
+              filterMonth === 'todos'
+                ? 'bg-[#59694A] text-white shadow-xs'
+                : 'bg-[#F2F2F7] text-[#6E6E73] hover:text-[#1D1D1F]'
+            }`}
+            style={{ border: 'none' }}
+          >
+            Todos os Meses
+          </button>
+          {availableMonths.map(m => (
+            <button
+              key={m}
+              onClick={() => setFilterMonth(m)}
+              className={`pressable px-3 py-1.5 rounded-[50px] font-semibold text-[12px] transition-all cursor-pointer shrink-0 ${
+                filterMonth === m
+                  ? 'bg-[#59694A] text-white shadow-xs'
+                  : 'bg-[#F2F2F7] text-[#6E6E73] hover:text-[#1D1D1F]'
+              }`}
+              style={{ border: 'none' }}
+            >
+              {fmtMonthYear(m)} {m === currentMonthISO ? '· Atual' : ''}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Resumo rápido no topo */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <div className="panel p-4">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-[#6E6E73] block mb-1">
-            Total em Aberto
+            Total em Aberto ({fmtMonthYear(selectedMonth)})
           </span>
           <span className="text-[20px] font-bold font-mono text-[#C24138]">
             {fmtBRL(totals.totalFaturas)}
@@ -212,54 +292,110 @@ export const FaturasTab: React.FC = () => {
           </FormCard>
         )}
 
-        {state.bills.length === 0 && !billForm ? (
-          <p style={{ fontSize: 12.5, color: '#8E8E93', padding: '8px 0' }}>
-            Nenhuma fatura cadastrada ainda.
+        {billGroups.length === 0 && !billForm ? (
+          <p style={{ fontSize: 12.5, color: '#8E8E93', padding: '12px 0' }}>
+            Nenhuma fatura cadastrada {filterMonth !== 'todos' ? `para ${fmtMonthYear(filterMonth)}` : 'ainda'}.
           </p>
         ) : (
-          <div style={{ borderTop: '1px solid #F2F2F7' }}>
-            {[...state.bills].sort((a, b) => a.vencimento.localeCompare(b.vencimento)).map(b => {
-              const account = state.accounts?.find(a => a.id === b.accountId);
-              const dias = daysUntil(b.vencimento);
-              const statusSub = b.pago
-                ? 'pago'
-                : dias < 0
-                ? `atrasada há ${Math.abs(dias)}d`
-                : dias === 0
-                ? 'vence hoje'
-                : `vence em ${dias}d`;
+          <div className="space-y-5 pt-2">
+            {billGroups.map(group => (
+              <div key={group.monthKey} className="space-y-1">
+                {/* Separador Visual de Mês */}
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-[12px] bg-[#F7F9F4] border border-[#D7E2CD]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-[6px] bg-[#EBF2E4] flex items-center justify-center text-[#59694A] shrink-0">
+                      <Calendar size={13} />
+                    </div>
+                    <span className="text-[13px] font-bold text-[#1D1D1F] tracking-tight">
+                      {fmtMonthYear(group.monthKey)}
+                    </span>
+                    {group.monthKey === currentMonthISO && (
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider bg-[#59694A] text-white px-2 py-0.5 rounded-[50px]">
+                        Mês Atual
+                      </span>
+                    )}
+                    <span className="text-[11px] text-[#8E8E93]">
+                      · {group.items.length} {group.items.length === 1 ? 'conta' : 'contas'}
+                    </span>
+                  </div>
 
-              return (
-                <div key={b.id} style={SEP}>
-                  <LedgerRow
-                    label={`${b.nome}${b.recorrente ? ' ↻' : ''}`}
-                    sub={`${b.categoria || 'Geral'} · vence ${fmtDate(b.vencimento)} · ${statusSub}${account ? ` · (${account.instituicao})` : ''}`}
-                    value={fmtBRL(b.valor)}
-                    tone={b.pago ? 'paid' : dias < 0 ? 'debt' : dias <= 7 ? 'warn' : 'default'}
-                    strong={!b.pago}
-                    right={
-                      confirmingId === b.id ? (
-                        <ConfirmDelete onConfirm={() => deleteBill(b.id)} onCancel={() => setConfirmingId(null)} />
-                      ) : (
-                        <span className="flex gap-0.5">
-                          <IconButton
-                            icon={Check}
-                            onClick={() => toggleBillPaid(b)}
-                            active={b.pago}
-                            title={b.pago ? 'Reabrir fatura' : 'Marcar como paga'}
-                          />
-                          <IconButton
-                            icon={Trash2}
-                            onClick={() => setConfirmingId(b.id)}
-                            danger
-                          />
+                  <div className="flex items-center gap-3 text-[11.5px]">
+                    <div>
+                      <span className="text-[9.5px] font-semibold uppercase tracking-wider text-[#6E6E73] block">
+                        Total
+                      </span>
+                      <span className="font-bold font-mono text-[#1D1D1F]">
+                        {fmtBRL(group.total)}
+                      </span>
+                    </div>
+                    <div className="border-l border-[#D7E2CD] pl-3">
+                      <span className="text-[9.5px] font-semibold uppercase tracking-wider text-[#59694A] block">
+                        Pago
+                      </span>
+                      <span className="font-bold font-mono text-[#59694A]">
+                        {fmtBRL(group.paid)}
+                      </span>
+                    </div>
+                    {group.open > 0 && (
+                      <div className="border-l border-[#D7E2CD] pl-3">
+                        <span className="text-[9.5px] font-semibold uppercase tracking-wider text-[#C24138] block">
+                          Em Aberto
                         </span>
-                      )
-                    }
-                  />
+                        <span className="font-bold font-mono text-[#C24138]">
+                          {fmtBRL(group.open)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              );
-            })}
+
+                {/* Linhas de Faturas daquele Mês */}
+                <div className="divide-y divide-[#F2F2F7]">
+                  {group.items.map(b => {
+                    const account = state.accounts?.find(a => a.id === b.accountId);
+                    const dias = daysUntil(b.vencimento);
+                    const statusSub = b.pago
+                      ? 'pago'
+                      : dias < 0
+                      ? `atrasada há ${Math.abs(dias)}d`
+                      : dias === 0
+                      ? 'vence hoje'
+                      : `vence em ${dias}d`;
+
+                    return (
+                      <div key={b.id}>
+                        <LedgerRow
+                          label={`${b.nome}${b.recorrente ? ' ↻' : ''}`}
+                          sub={`${b.categoria || 'Geral'} · vence ${fmtDate(b.vencimento)} · ${statusSub}${account ? ` · (${account.instituicao})` : ''}`}
+                          value={fmtBRL(b.valor)}
+                          tone={b.pago ? 'paid' : dias < 0 ? 'debt' : dias <= 7 ? 'warn' : 'default'}
+                          strong={!b.pago}
+                          right={
+                            confirmingId === b.id ? (
+                              <ConfirmDelete onConfirm={() => deleteBill(b.id)} onCancel={() => setConfirmingId(null)} />
+                            ) : (
+                              <span className="flex gap-0.5">
+                                <IconButton
+                                  icon={Check}
+                                  onClick={() => toggleBillPaid(b)}
+                                  active={b.pago}
+                                  title={b.pago ? 'Reabrir fatura' : 'Marcar como paga'}
+                                />
+                                <IconButton
+                                  icon={Trash2}
+                                  onClick={() => setConfirmingId(b.id)}
+                                  danger
+                                />
+                              </span>
+                            )
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

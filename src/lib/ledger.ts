@@ -63,6 +63,60 @@ export function fmtDateShort(iso: string): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
+export function fmtMonthYear(isoMonthOrDate: string): string {
+  if (!isoMonthOrDate) return '';
+  const ym = isoMonthOrDate.slice(0, 7);
+  const [yearStr, monthStr] = ym.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!year || !month) return isoMonthOrDate;
+  const d = new Date(year, month - 1, 1);
+  const str = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+export function addMonthsToMonthStr(ym: string, delta: number): string {
+  const [yearStr, monthStr] = ym.split('-');
+  const year = Number(yearStr) || new Date().getFullYear();
+  const month = Number(monthStr) || (new Date().getMonth() + 1);
+  const d = new Date(year, month - 1 + delta, 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+export function getAvailableMonths(state: LedgerState): string[] {
+  const monthsSet = new Set<string>();
+  const curMonth = todayISO().slice(0, 7);
+
+  // Baseline: mês anterior, atual e próximo
+  monthsSet.add(addMonthsToMonthStr(curMonth, -1));
+  monthsSet.add(curMonth);
+  monthsSet.add(addMonthsToMonthStr(curMonth, 1));
+
+  (state.income || []).forEach(r => {
+    if (r.data) monthsSet.add(r.data.slice(0, 7));
+  });
+
+  (state.bills || []).forEach(b => {
+    if (b.vencimento) monthsSet.add(b.vencimento.slice(0, 7));
+  });
+
+  (state.fixedExpenses || []).forEach(g => {
+    if (g.data) monthsSet.add(g.data.slice(0, 7));
+  });
+
+  (state.installments || []).forEach(i => {
+    if (i.dataInicio) {
+      for (let k = 0; k < i.parcelas; k++) {
+        monthsSet.add(addMonthsISO(i.dataInicio, k).slice(0, 7));
+      }
+    }
+  });
+
+  return Array.from(monthsSet).sort();
+}
+
 export interface InstallmentScheduleParcel {
   numero: number;
   total: number;
@@ -137,9 +191,25 @@ export function getInstallmentSchedule(
   };
 }
 
-export function computeTotals(state: LedgerState): Totals {
-  const totalFaturas = (state.bills || []).filter(b => !b.pago).reduce((s, b) => s + b.valor, 0);
-  const faturasPagas = (state.bills || []).filter(b => b.pago).reduce((s, b) => s + b.valor, 0);
+export function computeTotals(
+  state: LedgerState,
+  targetMonth: string = todayISO().slice(0, 7)
+): Totals {
+  const currentMonthStr = todayISO().slice(0, 7);
+  const isTargetCurrent = targetMonth === currentMonthStr;
+
+  // Faturas do mês selecionado:
+  // Se estiver visualizando o mês atual, inclui também faturas abertas de meses anteriores
+  const billsInMonth = (state.bills || []).filter(b => {
+    if (!b.vencimento) return false;
+    const m = b.vencimento.slice(0, 7);
+    if (m === targetMonth) return true;
+    if (isTargetCurrent && m < targetMonth && !b.pago) return true;
+    return false;
+  });
+
+  const totalFaturas = billsInMonth.filter(b => !b.pago).reduce((s, b) => s + b.valor, 0);
+  const faturasPagas = billsInMonth.filter(b => b.pago && b.vencimento.slice(0, 7) === targetMonth).reduce((s, b) => s + b.valor, 0);
 
   const totalDividas = (state.debts || []).reduce((s, d) => s + Math.max(0, d.valorTotal - d.valorPago), 0);
   const totalParcelamentos = (state.installments || []).reduce(
@@ -147,29 +217,27 @@ export function computeTotals(state: LedgerState): Totals {
     0
   );
 
-  // Parcelas ativas com vencimento no mês atual (ou em atraso)
-  // Se a primeira parcela começa em um mês futuro, NÃO afeta o mês atual!
-  const currentMonthStr = todayISO().slice(0, 7);
+  // Parcelas ativas com vencimento no mês selecionado (calculado via cronograma)
   const parcelasMensaisAtivas = (state.installments || []).reduce((s, i) => {
-    const schedule = getInstallmentSchedule(i, currentMonthStr);
+    const schedule = getInstallmentSchedule(i, targetMonth);
     return s + schedule.amountDueThisMonth;
   }, 0);
 
-  // Rendas: todas as rendas (pontuais + recorrentes)
-  const rendaRecebida = (state.income || []).filter(r => r.recebido).reduce((s, r) => s + r.valor, 0);
-  const rendaAReceber = (state.income || []).filter(r => !r.recebido).reduce((s, r) => s + r.valor, 0);
+  // Rendas do mês selecionado
+  const incomesInMonth = (state.income || []).filter(r => r.data && r.data.slice(0, 7) === targetMonth);
+  const rendaRecebida = incomesInMonth.filter(r => r.recebido).reduce((s, r) => s + r.valor, 0);
+  const rendaAReceber = incomesInMonth.filter(r => !r.recebido).reduce((s, r) => s + r.valor, 0);
   const rendaTotalMes = rendaRecebida + rendaAReceber;
 
-  // Gastos
-  const gastosFixosMensais = (state.fixedExpenses || []).reduce((s, g) => s + g.valor, 0);
-  const gastosFixosPagos = (state.fixedExpenses || []).filter(g => g.pago).reduce((s, g) => s + g.valor, 0);
+  // Gastos fixos do mês selecionado
+  const expensesInMonth = (state.fixedExpenses || []).filter(g => g.data && g.data.slice(0, 7) === targetMonth);
+  const gastosFixosMensais = expensesInMonth.reduce((s, g) => s + g.valor, 0);
+  const gastosFixosPagos = expensesInMonth.filter(g => g.pago).reduce((s, g) => s + g.valor, 0);
 
   const comprometimentoMensal = gastosFixosMensais + totalFaturas + parcelasMensaisAtivas;
   const saldoLivreMensal = rendaTotalMes - comprometimentoMensal;
 
   // Saldo total disponível em contas ou caixa
-  // Se o usuário tiver contas cadastradas, usa a soma das contas.
-  // Se ainda não cadastrou contas bancárias específicas, calcula o saldo real em caixa: total recebido - total pago!
   let saldoTotalContas = 0;
   if (state.accounts && state.accounts.length > 0) {
     saldoTotalContas = state.accounts.reduce((acc, a) => acc + (a.saldo || 0), 0);
@@ -185,8 +253,6 @@ export function computeTotals(state: LedgerState): Totals {
   // Total de obrigações brutas
   const totalObrigacoes = totalFaturas + totalDividas + totalParcelamentos;
 
-  // Saldo devedor líquido ajustado pela renda/saldo disponível:
-  // Se você adicionar renda, o saldo devedor pendente diminui; se remover a renda, ele volta a aumentar!
   const recursosDisponiveis = Math.max(0, saldoTotalContas > 0 ? saldoTotalContas : rendaTotalMes);
   const saldoDevedor = Math.max(0, totalObrigacoes - recursosDisponiveis);
 
@@ -217,25 +283,31 @@ export interface CategoryBreakdownItem {
   percentual: number;
 }
 
-export function computeCategoryBreakdown(state: LedgerState): CategoryBreakdownItem[] {
+export function computeCategoryBreakdown(
+  state: LedgerState,
+  targetMonth: string = todayISO().slice(0, 7)
+): CategoryBreakdownItem[] {
   const map: Record<string, number> = {};
 
-  // Gastos fixos mensais
-  (state.fixedExpenses || []).forEach(g => {
-    const cat = g.categoria?.trim() || 'Outros';
-    map[cat] = (map[cat] || 0) + g.valor;
-  });
+  // Gastos fixos do mês selecionado
+  (state.fixedExpenses || [])
+    .filter(g => g.data && g.data.slice(0, 7) === targetMonth)
+    .forEach(g => {
+      const cat = g.categoria?.trim() || 'Outros';
+      map[cat] = (map[cat] || 0) + g.valor;
+    });
 
-  // Faturas ativas (não pagas)
-  (state.bills || []).filter(b => !b.pago).forEach(b => {
-    const cat = b.categoria?.trim() || 'Outros';
-    map[cat] = (map[cat] || 0) + b.valor;
-  });
+  // Faturas ativas (não pagas) do mês selecionado
+  (state.bills || [])
+    .filter(b => !b.pago && b.vencimento && b.vencimento.slice(0, 7) === targetMonth)
+    .forEach(b => {
+      const cat = b.categoria?.trim() || 'Outros';
+      map[cat] = (map[cat] || 0) + b.valor;
+    });
 
-  // Parcelas ativas do mês atual
-  const currentMonthStr = todayISO().slice(0, 7);
+  // Parcelas ativas do mês selecionado
   (state.installments || []).forEach(i => {
-    const schedule = getInstallmentSchedule(i, currentMonthStr);
+    const schedule = getInstallmentSchedule(i, targetMonth);
     if (schedule.amountDueThisMonth > 0) {
       const cat = i.categoria?.trim() || 'Compras';
       map[cat] = (map[cat] || 0) + schedule.amountDueThisMonth;

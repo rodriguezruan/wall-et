@@ -8,7 +8,7 @@ import { useLedger } from '../context/LedgerContext';
 import { MetricCard, SectionHeader, AlertBanner } from './ui';
 import { GreetingHeader } from './GreetingHeader';
 import { RightCalendarPanel } from './RightCalendarPanel';
-import { fmtBRL, fmtDateShort, todayISO, computeCategoryBreakdown } from '../lib/ledger';
+import { fmtBRL, fmtDateShort, todayISO, computeCategoryBreakdown, fmtMonthYear } from '../lib/ledger';
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) => {
   if (!active || !payload?.length) return null;
@@ -26,7 +26,7 @@ const GRID = 'rgba(0,0,0,0.04)';
 const TICK = '#8E8E93';
 
 export const ResumoTab: React.FC = () => {
-  const { state, totals, setTab, openQuickAdd } = useLedger();
+  const { state, totals, setTab, openQuickAdd, selectedMonth } = useLedger();
 
   const chartData = useMemo(() => {
     const pts = (state.history || []).map(h => ({ data: fmtDateShort(h.data), saldo: h.saldoApos }));
@@ -44,7 +44,7 @@ export const ResumoTab: React.FC = () => {
     { nome: 'Parcelas ativas', valor: Math.max(0, totals.comprometimentoMensal - totals.gastosFixosMensais - totals.totalFaturas) },
   ], [totals]);
 
-  const categoryBreakdown = useMemo(() => computeCategoryBreakdown(state), [state]);
+  const categoryBreakdown = useMemo(() => computeCategoryBreakdown(state, selectedMonth), [state, selectedMonth]);
 
   return (
     /* Grid em 2 áreas principais (Coluna Central Fluida + Painel Direito de Agenda) */
@@ -68,9 +68,9 @@ export const ResumoTab: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <MetricCard label="Saldo Disponível"      value={totals.saldoTotalContas}      tone="paid"    formatter={fmtBRL} />
           <MetricCard label="Dinheiro a Receber"    value={totals.rendaAReceber}         tone="warn"    formatter={fmtBRL} />
-          <MetricCard label="Comprometido no Mês"   value={totals.comprometimentoMensal} tone="debt"    formatter={fmtBRL} />
+          <MetricCard label={`Comprometido (${fmtMonthYear(selectedMonth)})`}   value={totals.comprometimentoMensal} tone="debt"    formatter={fmtBRL} />
           <MetricCard
-            label="Sobra Mensal Estimada"
+            label={`Sobra (${fmtMonthYear(selectedMonth)})`}
             value={totals.saldoLivreMensal}
             tone={totals.saldoLivreMensal >= 0 ? 'paid' : 'debt'}
             formatter={fmtBRL}
@@ -97,7 +97,7 @@ export const ResumoTab: React.FC = () => {
         {/* Relatório Visual: Para onde vai o dinheiro */}
         <div className="panel p-5">
           <div className="flex items-center justify-between mb-2">
-            <SectionHeader icon={PieChart} title="Para onde vai o dinheiro (Despesas por Categoria)" />
+            <SectionHeader icon={PieChart} title={`Para onde vai o dinheiro · ${fmtMonthYear(selectedMonth)}`} />
             <button
               onClick={() => openQuickAdd('despesa')}
               className="text-[#59694A] font-semibold text-[11.5px] hover:underline"
@@ -109,7 +109,7 @@ export const ResumoTab: React.FC = () => {
 
           {categoryBreakdown.length === 0 ? (
             <p style={{ fontSize: 12.5, color: '#8E8E93', padding: '10px 0' }}>
-              Nenhum gasto ou fatura registrada para categorização neste mês.
+              Nenhum gasto ou fatura registrada para categorização em {fmtMonthYear(selectedMonth)}.
             </p>
           ) : (
             <div className="space-y-3 mt-2">
