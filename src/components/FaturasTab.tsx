@@ -99,29 +99,54 @@ export const FaturasTab: React.FC = () => {
       });
     }
 
+    const nextDate = addMonthsISO(bill.vencimento, 1);
+    const nextMonth = nextDate.slice(0, 7);
+
     let next = { ...state, bills, accounts: updatedAccounts };
     if (isPaying) {
       next = pushHistory(next, 'fatura-paga', `Pagamento: ${bill.nome}`, bill.valor);
       if (bill.recorrente) {
-        next = {
-          ...next,
-          bills: [
-            ...next.bills,
-            {
-              id: uid(),
-              nome: bill.nome,
-              categoria: bill.categoria,
-              valor: bill.valor,
-              vencimento: addMonthsISO(bill.vencimento, 1),
-              recorrente: true,
-              pago: false,
-              accountId: bill.accountId,
-            }
-          ]
-        };
+        const alreadyExists = next.bills.some(
+          b => b.id !== bill.id &&
+               b.nome.trim().toLowerCase() === bill.nome.trim().toLowerCase() &&
+               (b.vencimento || '').slice(0, 7) === nextMonth
+        );
+
+        if (!alreadyExists) {
+          next = {
+            ...next,
+            bills: [
+              ...next.bills,
+              {
+                id: uid(),
+                nome: bill.nome,
+                categoria: bill.categoria,
+                valor: bill.valor,
+                vencimento: nextDate,
+                recorrente: true,
+                pago: false,
+                accountId: bill.accountId,
+              }
+            ]
+          };
+        }
       }
     } else {
       next = pushHistory(next, 'fatura-reaberta', `Pagamento desfeito: ${bill.nome}`, -bill.valor);
+      if (bill.recorrente) {
+        // Ao desmarcar pagamento, remove do próximo mês o registro recorrente em aberto
+        next = {
+          ...next,
+          bills: next.bills.filter(
+            b => !(
+              b.id !== bill.id &&
+              b.nome.trim().toLowerCase() === bill.nome.trim().toLowerCase() &&
+              (b.vencimento || '').slice(0, 7) === nextMonth &&
+              !b.pago
+            )
+          )
+        };
+      }
     }
     persist(next);
   }

@@ -116,28 +116,53 @@ export const FluxoTab: React.FC = () => {
       });
     }
 
+    const nextDate = addMonthsISO(item.data, 1);
+    const nextMonth = nextDate.slice(0, 7);
+
     let next = { ...state, income, accounts: updatedAccounts };
     if (isReceiving) {
       next = pushHistory(next, 'renda-recebida', `Recebido: ${item.nome}`, item.valor);
       if (item.recorrente) {
-        next = {
-          ...next,
-          income: [
-            ...next.income,
-            {
-              id: uid(),
-              nome: item.nome,
-              valor: item.valor,
-              data: addMonthsISO(item.data, 1),
-              recorrente: true,
-              recebido: false,
-              accountId: item.accountId,
-            }
-          ]
-        };
+        const alreadyExists = next.income.some(
+          r => r.id !== item.id &&
+               r.nome.trim().toLowerCase() === item.nome.trim().toLowerCase() &&
+               (r.data || '').slice(0, 7) === nextMonth
+        );
+
+        if (!alreadyExists) {
+          next = {
+            ...next,
+            income: [
+              ...next.income,
+              {
+                id: uid(),
+                nome: item.nome,
+                valor: item.valor,
+                data: nextDate,
+                recorrente: true,
+                recebido: false,
+                accountId: item.accountId,
+              }
+            ]
+          };
+        }
       }
     } else {
       next = pushHistory(next, 'renda-estorno', `Estorno: ${item.nome}`, -item.valor);
+      if (item.recorrente) {
+        // Ao desmarcar recebimento, remove do próximo mês o registro recorrente não recebido
+        next = {
+          ...next,
+          income: next.income.filter(
+            r => !(
+              r.id !== item.id &&
+              r.nome.trim().toLowerCase() === item.nome.trim().toLowerCase() &&
+              (r.data || '').slice(0, 7) === nextMonth &&
+              !r.recebido
+            )
+          )
+        };
+      }
     }
     persist(next);
   }
@@ -208,25 +233,52 @@ export const FluxoTab: React.FC = () => {
       });
     }
 
+    const nextDate = addMonthsISO(item.data, 1);
+    const nextMonth = nextDate.slice(0, 7);
+
     let next = { ...state, fixedExpenses, accounts: updatedAccounts };
     if (isPaying) {
       next = pushHistory(next, 'gasto-fixo-pago', `Pago: ${item.nome}`, item.valor);
       if (item.recorrente) {
+        const alreadyExists = next.fixedExpenses.some(
+          g => g.id !== item.id &&
+               g.nome.trim().toLowerCase() === item.nome.trim().toLowerCase() &&
+               (g.data || '').slice(0, 7) === nextMonth
+        );
+
+        if (!alreadyExists) {
+          next = {
+            ...next,
+            fixedExpenses: [
+              ...next.fixedExpenses,
+              {
+                id: uid(),
+                nome: item.nome,
+                categoria: item.categoria,
+                valor: item.valor,
+                data: nextDate,
+                recorrente: true,
+                pago: false,
+                accountId: item.accountId,
+              }
+            ]
+          };
+        }
+      }
+    } else {
+      next = pushHistory(next, 'gasto-fixo-estorno', `Estorno: ${item.nome}`, -item.valor);
+      if (item.recorrente) {
+        // Ao desmarcar pagamento, remove do próximo mês o registro recorrente não pago
         next = {
           ...next,
-          fixedExpenses: [
-            ...next.fixedExpenses,
-            {
-              id: uid(),
-              nome: item.nome,
-              categoria: item.categoria,
-              valor: item.valor,
-              data: addMonthsISO(item.data, 1),
-              recorrente: true,
-              pago: false,
-              accountId: item.accountId,
-            }
-          ]
+          fixedExpenses: next.fixedExpenses.filter(
+            g => !(
+              g.id !== item.id &&
+              g.nome.trim().toLowerCase() === item.nome.trim().toLowerCase() &&
+              (g.data || '').slice(0, 7) === nextMonth &&
+              !g.pago
+            )
+          )
         };
       }
     }

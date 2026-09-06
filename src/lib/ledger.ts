@@ -1,4 +1,4 @@
-import type { LedgerState, Totals, Installment } from '../types/ledger';
+import type { LedgerState, Totals, Installment, IncomeItem, FixedExpense, Bill } from '../types/ledger';
 
 export const STORAGE_KEY = 'wall-et-ledger-v1';
 
@@ -326,14 +326,51 @@ export function computeCategoryBreakdown(
     .sort((a, b) => b.valor - a.valor);
 }
 
+function deduplicateUnpaidItems<T extends { id: string; nome: string; valor: number }>(
+  items: T[],
+  getDate: (item: T) => string,
+  isPaidOrReceived: (item: T) => boolean
+): T[] {
+  const seenKeys = new Set<string>();
+  return items.filter(item => {
+    if (isPaidOrReceived(item)) return true;
+    const month = (getDate(item) || '').slice(0, 7);
+    const key = `${item.nome.trim().toLowerCase()}__${item.valor}__${month}`;
+    if (seenKeys.has(key)) {
+      return false;
+    }
+    seenKeys.add(key);
+    return true;
+  });
+}
+
 export function loadState(): LedgerState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
+      const sanitizedIncome = deduplicateUnpaidItems<IncomeItem>(
+        (parsed.income || []) as IncomeItem[],
+        r => r.data,
+        r => !!r.recebido
+      );
+      const sanitizedFixedExpenses = deduplicateUnpaidItems<FixedExpense>(
+        (parsed.fixedExpenses || []) as FixedExpense[],
+        g => g.data,
+        g => !!g.pago
+      );
+      const sanitizedBills = deduplicateUnpaidItems<Bill>(
+        (parsed.bills || []) as Bill[],
+        b => b.vencimento,
+        b => !!b.pago
+      );
+
       return {
         ...EMPTY_STATE,
         ...parsed,
+        income: sanitizedIncome,
+        fixedExpenses: sanitizedFixedExpenses,
+        bills: sanitizedBills,
         userProfile: parsed.userProfile || { name: 'Ruan', onboarded: true },
         accounts: parsed.accounts || [],
       };
