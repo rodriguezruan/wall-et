@@ -45,7 +45,7 @@ const OLIVE     = '#59694A';
 const OLIVE_BG  = '#EBF2E4';
 
 function AppShell() {
-  const { state, tab, setTab, totals, openQuickAdd, updateUserProfile } = useLedger();
+  const { state, tab, setTab, totals, openQuickAdd, updateUserProfile, resetAllData } = useLedger();
   const [showSplash, setShowSplash] = useState(true);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
 
@@ -211,19 +211,34 @@ function AppShell() {
               </span>
             </div>
 
-            <button
-              onClick={() => {
-                const newName = window.prompt('Qual nome deseja exibir no seu painel?', state.userProfile?.name || '');
-                if (newName && newName.trim()) {
-                  updateUserProfile({ name: newName.trim() });
-                }
-              }}
-              className="text-[11px] font-medium text-[#8E8E93] hover:text-[#59694A] transition-colors shrink-0"
-              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-              title="Alterar nome"
-            >
-              Editar
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => {
+                  const newName = window.prompt('Qual nome deseja exibir no seu painel?', state.userProfile?.name || '');
+                  if (newName && newName.trim()) {
+                    updateUserProfile({ name: newName.trim() });
+                  }
+                }}
+                className="text-[11px] font-medium text-[#8E8E93] hover:text-[#59694A] transition-colors"
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                title="Alterar nome"
+              >
+                Editar
+              </button>
+              <span className="text-[#E5E5EA]">·</span>
+              <button
+                onClick={() => {
+                  if (window.confirm('Tem certeza de que deseja limpar todos os seus lançamentos e dados cadastrados?')) {
+                    resetAllData();
+                  }
+                }}
+                className="text-[11px] font-medium text-[#C24138] hover:underline transition-colors"
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                title="Limpar todos os dados cadastrados"
+              >
+                Zerar
+              </button>
+            </div>
           </div>
         </aside>
       </div>

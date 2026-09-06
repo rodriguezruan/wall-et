@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { LedgerState, Totals, TabId, Account, UserProfile } from '../types/ledger';
-import { loadState, saveState, computeTotals, uid, todayISO, getAvailableMonths, addMonthsToMonthStr } from '../lib/ledger';
+import { loadState, saveState, computeTotals, uid, todayISO, getAvailableMonths, addMonthsToMonthStr, EMPTY_STATE } from '../lib/ledger';
 
 interface LedgerContextType {
   state: LedgerState;
@@ -34,6 +34,7 @@ interface LedgerContextType {
   // User Profile & Onboarding
   updateUserProfile: (profile: Partial<UserProfile>) => void;
   completeOnboarding: (name: string, initialBalance?: number, objetivo?: string) => void;
+  resetAllData: () => void;
 }
 
 const LedgerContext = createContext<LedgerContextType | undefined>(undefined);
@@ -169,6 +170,25 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [selectedMonth]
   );
 
+  const resetAllData = useCallback(() => {
+    const fresh: LedgerState = {
+      ...EMPTY_STATE,
+      userProfile: {
+        name: state.userProfile?.name || 'Ruan',
+        onboarded: true,
+      },
+      accounts: [],
+      bills: [],
+      debts: [],
+      installments: [],
+      income: [],
+      fixedExpenses: [],
+      history: [],
+    };
+    setState(fresh);
+    saveState(fresh);
+  }, [state.userProfile]);
+
   return (
     <LedgerContext.Provider
       value={{
@@ -195,6 +215,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateAccountBalance,
         updateUserProfile,
         completeOnboarding,
+        resetAllData,
       }}
     >
       {children}
