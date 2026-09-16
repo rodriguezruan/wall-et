@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Plus, ChevronLeft, ChevronRight, Calendar, ChevronDown, RotateCcw } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar, ChevronDown, RotateCcw, RefreshCw } from 'lucide-react';
 import { useLedger } from '../context/LedgerContext';
 import { fmtBRL, fmtMonthYear, todayISO } from '../lib/ledger';
 
@@ -14,6 +14,8 @@ export const GreetingHeader: React.FC = () => {
     nextMonth,
     prevMonth,
     resetToCurrentMonth,
+    syncAllPluggy,
+    isSyncingPluggy,
   } = useLedger();
 
   const userName = state.userProfile?.name?.trim() || 'Ruan';
@@ -118,6 +120,20 @@ export const GreetingHeader: React.FC = () => {
           >
             <RotateCcw size={12} />
             <span>Mês Atual</span>
+          </button>
+        )}
+
+        {/* Botão de sincronização rápida do Open Finance */}
+        {(state.pluggyConnections || []).length > 0 && (
+          <button
+            onClick={() => syncAllPluggy()}
+            disabled={isSyncingPluggy}
+            className="pressable inline-flex items-center gap-1.5 px-3 py-2 rounded-[50px] text-[12px] font-medium text-[#59694A] bg-[#EBF2E4] border border-[#C8D6B5] hover:brightness-95 transition-all disabled:opacity-50 shrink-0"
+            style={{ cursor: 'pointer' }}
+            title="Sincronizar dados bancários via Open Finance"
+          >
+            <RefreshCw size={13} className={isSyncingPluggy ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">{isSyncingPluggy ? 'Sincronizando...' : 'Sincronizar'}</span>
           </button>
         )}
 

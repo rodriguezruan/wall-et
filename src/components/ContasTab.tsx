@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import {
   Landmark, Plus, Trash2, CreditCard,
-  Wallet, PiggyBank, Coins, Edit3, Check
+  Wallet, PiggyBank, Coins, Edit3, Check,
+  RefreshCw, ShieldCheck, Zap, Sparkles
 } from 'lucide-react';
 import { useLedger } from '../context/LedgerContext';
 import {
   SectionHeader, GhostButton, FormCard,
   TextField, SelectField, ConfirmDelete,
 } from './ui';
-import { fmtBRL } from '../lib/ledger';
+import { fmtBRL, fmtDate } from '../lib/ledger';
 import type { AccountType } from '../types/ledger';
 
 const TYPE_ICONS: Record<AccountType, React.ElementType> = {
@@ -55,7 +56,20 @@ function getInstitutionPalette(inst: string, type: AccountType) {
 }
 
 export const ContasTab: React.FC = () => {
-  const { state, totals, addAccount, deleteAccount, updateAccountBalance, confirmingId, setConfirmingId } = useLedger();
+  const {
+    state,
+    totals,
+    addAccount,
+    deleteAccount,
+    updateAccountBalance,
+    confirmingId,
+    setConfirmingId,
+    openPluggyConnect,
+    syncPluggyItem,
+    syncAllPluggy,
+    disconnectPluggyItem,
+    isSyncingPluggy,
+  } = useLedger();
 
   const [formOpen, setFormOpen] = useState(false);
   const [nome, setNome] = useState('');
@@ -66,6 +80,9 @@ export const ContasTab: React.FC = () => {
   // Edição rápida de saldo
   const [editingBalanceId, setEditingBalanceId] = useState<string | null>(null);
   const [tempBalance, setTempBalance] = useState('');
+
+  // ID da conexão sendo sincronizada individualmente
+  const [syncingConnId, setSyncingConnId] = useState<string | null>(null);
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -92,31 +109,229 @@ export const ContasTab: React.FC = () => {
     setEditingBalanceId(null);
   }
 
+  async function handleSyncSingle(id: string) {
+    setSyncingConnId(id);
+    try {
+      await syncPluggyItem(id);
+    } finally {
+      setSyncingConnId(null);
+    }
+  }
+
+  const connections = state.pluggyConnections || [];
+
   return (
     <div className="space-y-6">
-      {/* Resumo do Patrimônio Consolidado */}
+      {/* Resumo do Patrimônio Consolidado & Ações */}
       <div className="panel p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span className="text-[11.5px] font-semibold uppercase tracking-wider text-[#6E6E73] block mb-1">
-            Saldo Total Disponível em Contas
-          </span>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11.5px] font-semibold uppercase tracking-wider text-[#6E6E73]">
+              Saldo Total Disponível em Contas
+            </span>
+            {connections.length > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#59694A] bg-[#EBF2E4] px-2 py-0.5 rounded-full">
+                <ShieldCheck size={11} />
+                Open Finance Ativo
+              </span>
+            )}
+          </div>
           <div className="text-[28px] md:text-[34px] font-bold tracking-tight text-[#1D1D1F] font-mono leading-none">
             {fmtBRL(totals.saldoTotalContas)}
           </div>
           <p className="text-[12px] text-[#6E6E73] mt-2">
-            Reúne o saldo de todas as suas contas bancárias, carteiras digitais e dinheiro em espécie.
+            Reúne o saldo de todas as suas contas bancárias sincronizadas e manuais.
           </p>
         </div>
 
-        <button
-          onClick={() => setFormOpen(true)}
-          className="pressable inline-flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px] font-semibold text-white self-start md:self-auto hover:brightness-95"
-          style={{ background: '#59694A', border: 'none', cursor: 'pointer' }}
-        >
-          <Plus size={15} strokeWidth={2.5} />
-          <span>Nova Conta / Carteira</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap self-start md:self-auto">
+          {connections.length > 0 && (
+            <button
+              onClick={() => syncAllPluggy()}
+              disabled={isSyncingPluggy}
+              className="pressable inline-flex items-center gap-2 px-3.5 py-2.5 rounded-[12px] text-[12.5px] font-medium text-[#1D1D1F] bg-[#F2F2F7] hover:bg-[#E5E5EA] transition-all disabled:opacity-50"
+              style={{ border: 'none', cursor: 'pointer' }}
+              title="Atualizar saldos e lançamentos de todas as instituições conectadas"
+            >
+              <RefreshCw size={14} className={isSyncingPluggy ? 'animate-spin text-[#59694A]' : ''} />
+              <span>{isSyncingPluggy ? 'Sincronizando...' : 'Sincronizar Tudo'}</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => openPluggyConnect()}
+            className="pressable inline-flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px] font-semibold text-white shadow-sm hover:brightness-95"
+            style={{ background: '#59694A', border: 'none', cursor: 'pointer' }}
+          >
+            <Zap size={14} className="fill-white" />
+            <span>Conectar Banco (Open Finance)</span>
+          </button>
+
+          <button
+            onClick={() => setFormOpen(true)}
+            className="pressable inline-flex items-center gap-1.5 px-3 py-2.5 rounded-[12px] text-[12.5px] font-medium text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-[#F2F2F7] transition-all"
+            style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+          >
+            <Plus size={14} strokeWidth={2.5} />
+            <span>Manual</span>
+          </button>
+        </div>
       </div>
+
+      {/* Seção de Conexões Open Finance */}
+      {connections.length > 0 ? (
+        <div className="panel p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-[8px] bg-[#EBF2E4] text-[#59694A] flex items-center justify-center">
+                <ShieldCheck size={16} />
+              </div>
+              <div>
+                <h3 className="text-[13.5px] font-bold text-[#1D1D1F]">
+                  Bancos & Instituições Conectadas ({connections.length})
+                </h3>
+                <p className="text-[11.5px] text-[#8E8E93]">
+                  Sincronização bancária automática e segura via Pluggy
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => openPluggyConnect()}
+              className="pressable text-[12px] font-semibold text-[#59694A] hover:underline"
+              style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+            >
+              + Adicionar outro banco
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {connections.map(conn => {
+              const isSyncingThis = isSyncingPluggy && syncingConnId === conn.id;
+              const formattedSync = conn.lastSyncAt
+                ? fmtDate(conn.lastSyncAt.slice(0, 10))
+                : 'Pendente';
+
+              return (
+                <div
+                  key={conn.id}
+                  className="rounded-[14px] border border-[#E5E5EA] bg-[#FBFBFC] p-4 flex flex-col justify-between gap-3 hover:border-[#D1D1D6] transition-all"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {conn.connectorImageUrl ? (
+                        <div
+                          className="w-9 h-9 rounded-[10px] p-1.5 flex items-center justify-center shrink-0 border"
+                          style={{
+                            backgroundColor: '#FFFFFF',
+                            borderColor: '#E5E5EA',
+                          }}
+                        >
+                          <img
+                            src={conn.connectorImageUrl}
+                            alt={conn.connectorName}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 border text-white font-bold text-[13px]"
+                          style={{
+                            backgroundColor: conn.connectorPrimaryColor || '#59694A',
+                            borderColor: '#E5E5EA',
+                          }}
+                        >
+                          {conn.connectorName.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <div className="text-[13.5px] font-bold text-[#1D1D1F] truncate">
+                          {conn.connectorName}
+                        </div>
+                        <div className="text-[11px] text-[#8E8E93] truncate">
+                          {conn.accountsCount || 1} conta(s) · Sincronizado em {formattedSync}
+                        </div>
+                      </div>
+                    </div>
+
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0"
+                      style={{
+                        backgroundColor: conn.status === 'LOGIN_ERROR' ? '#FDF2F2' : '#EBF2E4',
+                        color: conn.status === 'LOGIN_ERROR' ? '#C24138' : '#59694A',
+                      }}
+                    >
+                      {conn.status === 'LOGIN_ERROR' ? 'Atenção' : 'Conectado'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-[#F2F2F7]">
+                    <button
+                      onClick={() => handleSyncSingle(conn.id)}
+                      disabled={isSyncingThis}
+                      className="pressable inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#59694A] hover:brightness-90 transition-all disabled:opacity-50"
+                      style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                    >
+                      <RefreshCw size={12} className={isSyncingThis ? 'animate-spin' : ''} />
+                      <span>{isSyncingThis ? 'Atualizando...' : 'Atualizar Saldo'}</span>
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openPluggyConnect(conn.id)}
+                        className="text-[11px] font-medium text-[#8E8E93] hover:text-[#1D1D1F] transition-colors"
+                        style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                        title="Revalidar credenciais com a instituição"
+                      >
+                        Reconectar
+                      </button>
+                      <span className="text-[#E5E5EA]">·</span>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Deseja desconectar ${conn.connectorName}? As contas locais serão mantidas.`)) {
+                            disconnectPluggyItem(conn.id);
+                          }
+                        }}
+                        className="text-[11px] font-medium text-[#C24138] hover:underline transition-colors"
+                        style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                        title="Desconectar do Open Finance"
+                      >
+                        Desconectar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="panel p-5 bg-gradient-to-r from-[#FBFDF9] to-[#F5F8F2] border border-[#DCE8D2] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-[12px] bg-[#EBF2E4] text-[#59694A] flex items-center justify-center shrink-0 border border-[#C8D6B5]">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <h4 className="text-[14px] font-bold text-[#1D1D1F]">
+                Conecte seus bancos reais via Open Finance
+              </h4>
+              <p className="text-[12px] text-[#6E6E73] mt-0.5 max-w-xl">
+                Sincronize saldos, faturas de cartão e transações do Nubank, Itaú, Inter e outros bancos com 1 clique, sem precisar lançar nada manualmente.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => openPluggyConnect()}
+            className="pressable inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-[12.5px] font-semibold text-white shrink-0 hover:brightness-95"
+            style={{ background: '#59694A', border: 'none', cursor: 'pointer' }}
+          >
+            <Zap size={13} className="fill-white" />
+            <span>Conectar Primeiro Banco</span>
+          </button>
+        </div>
+      )}
 
       {/* Formulário de Nova Conta */}
       {formOpen && (
@@ -221,8 +436,16 @@ export const ContasTab: React.FC = () => {
                         <Icon size={18} strokeWidth={1.8} />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[14px] font-bold text-[#1D1D1F] truncate">
-                          {acc.instituicao}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[14px] font-bold text-[#1D1D1F] truncate">
+                            {acc.instituicao}
+                          </span>
+                          {acc.pluggyAccountId && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9.5px] font-semibold text-[#59694A] bg-[#EBF2E4]">
+                              <ShieldCheck size={9.5} />
+                              Open Finance
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11.5px] text-[#6E6E73] truncate">
                           {acc.nome} · {TYPE_LABELS[acc.tipo]}
