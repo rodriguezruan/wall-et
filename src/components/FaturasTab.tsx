@@ -152,7 +152,14 @@ export const FaturasTab: React.FC = () => {
   }
 
   function deleteBill(id: string) {
-    persist({ ...state, bills: state.bills.filter(b => b.id !== id) });
+    const bill = state.bills.find(b => b.id === id);
+    let updatedAccounts = state.accounts || [];
+    if (bill?.pago && bill.accountId) {
+      updatedAccounts = updatedAccounts.map(acc =>
+        acc.id === bill.accountId ? { ...acc, saldo: acc.saldo + bill.valor } : acc
+      );
+    }
+    persist({ ...state, accounts: updatedAccounts, bills: state.bills.filter(b => b.id !== id) });
     setConfirmingId(null);
   }
 

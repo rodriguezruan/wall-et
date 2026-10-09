@@ -1,6 +1,23 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { LedgerState, Totals, TabId, Account, UserProfile } from '../types/ledger';
 import { loadState, saveState, computeTotals, uid, todayISO, getAvailableMonths, addMonthsToMonthStr, EMPTY_STATE } from '../lib/ledger';
+import {
+  isPluggyConfigured,
+  createConnectToken,
+  fetchPluggySnapshot,
+  applyPluggySnapshot,
+  deletePluggyItem,
+  triggerPluggySync,
+  type PluggySnapshot,
+} from '../lib/pluggy';
+
+interface PluggyModalState {
+  isOpen: boolean;
+  token: string | null;
+  updateItemId?: string;
+  error?: string;
+  loading: boolean;
+}
 
 interface LedgerContextType {
   state: LedgerState;
@@ -35,6 +52,16 @@ interface LedgerContextType {
   updateUserProfile: (profile: Partial<UserProfile>) => void;
   completeOnboarding: (name: string, initialBalance?: number, objetivo?: string) => void;
   resetAllData: () => void;
+
+  // Pluggy Open Finance
+  isPluggyConfigured: boolean;
+  isSyncingPluggy: boolean;
+  pluggyModalState: PluggyModalState;
+  openPluggyConnect: (updateItemId?: string) => Promise<void>;
+  closePluggyConnect: () => void;
+  syncPluggyItem: (itemId: string) => Promise<void>;
+  syncAllPluggy: () => Promise<void>;
+  disconnectPluggyItem: (itemId: string) => Promise<void>;
 }
 
 const LedgerContext = createContext<LedgerContextType | undefined>(undefined);
@@ -184,10 +211,118 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       income: [],
       fixedExpenses: [],
       history: [],
+      pluggyConnections: [],
     };
     setState(fresh);
     saveState(fresh);
   }, [state.userProfile]);
+
+  // Pluggy Open Finance State & Methods
+  const [isSyncingPluggy, setIsSyncingPluggy] = useState(false);
+  const [pluggyModalState, setPluggyModalState] = useState<PluggyModalState>({
+    isOpen: false,
+    token: null,
+    loading: false,
+  });
+
+  const openPluggyConnect = useCallback(async (updateItemId?: string) => {
+    setPluggyModalState({
+      isOpen: true,
+      token: null,
+      updateItemId,
+      loading: true,
+      error: undefined,
+    });
+
+    try {
+      const token = await createConnectToken(updateItemId);
+      setPluggyModalState(prev => ({
+        ...prev,
+        token,
+        loading: false,
+      }));
+    } catch (err: any) {
+      setPluggyModalState(prev => ({
+        ...prev,
+        loading: false,
+        error: err.message || 'Falha ao iniciar conexão com Pluggy.',
+      }));
+    }
+  }, []);
+
+  const closePluggyConnect = useCallback(() => {
+    setPluggyModalState({
+      isOpen: false,
+      token: null,
+      loading: false,
+    });
+  }, []);
+
+  const syncPluggyItem = useCallback(async (itemId: string) => {
+    setIsSyncingPluggy(true);
+    try {
+      await triggerPluggySync(itemId);
+      const snapshot = await fetchPluggySnapshot(itemId);
+      // Aplica sobre o estado mais recente para não perder edições feitas durante a busca
+      setState(prev => {
+        const next = applyPluggySnapshot(prev, snapshot);
+        saveState(next);
+        return next;
+      });
+    } catch (err) {
+      console.error('Erro ao sincronizar Pluggy item:', err);
+      throw err;
+    } finally {
+      setIsSyncingPluggy(false);
+    }
+  }, []);
+
+  const syncAllPluggy = useCallback(async () => {
+    const connections = state.pluggyConnections || [];
+    if (connections.length === 0) return;
+
+    setIsSyncingPluggy(true);
+    try {
+      const snapshots: PluggySnapshot[] = [];
+      for (const conn of connections) {
+        try {
+          await triggerPluggySync(conn.id);
+          snapshots.push(await fetchPluggySnapshot(conn.id));
+        } catch (err) {
+          console.error(`Erro ao sincronizar conexão ${conn.connectorName}:`, err);
+        }
+      }
+      // Aplica sobre o estado mais recente para não perder edições feitas durante a busca
+      setState(prev => {
+        const next = snapshots.reduce(applyPluggySnapshot, prev);
+        saveState(next);
+        return next;
+      });
+    } finally {
+      setIsSyncingPluggy(false);
+    }
+  }, [state.pluggyConnections]);
+
+  const disconnectPluggyItem = useCallback(async (itemId: string) => {
+    try {
+      await deletePluggyItem(itemId).catch(() => {});
+    } catch {
+      // ignore
+    }
+
+    setState(prev => {
+      const next: LedgerState = {
+        ...prev,
+        pluggyConnections: (prev.pluggyConnections || []).filter(c => c.id !== itemId),
+        accounts: (prev.accounts || []).map(a =>
+          a.pluggyItemId === itemId ? { ...a, pluggyItemId: undefined, pluggyAccountId: undefined } : a
+        ),
+      };
+      saveState(next);
+      return next;
+    });
+    setConfirmingId(null);
+  }, []);
 
   return (
     <LedgerContext.Provider
@@ -216,6 +351,14 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateUserProfile,
         completeOnboarding,
         resetAllData,
+        isPluggyConfigured: isPluggyConfigured(),
+        isSyncingPluggy,
+        pluggyModalState,
+        openPluggyConnect,
+        closePluggyConnect,
+        syncPluggyItem,
+        syncAllPluggy,
+        disconnectPluggyItem,
       }}
     >
       {children}

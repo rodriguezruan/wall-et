@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import {
   Landmark, Plus, Trash2, CreditCard,
-  Wallet, PiggyBank, Coins, Edit3, Check
+  Wallet, PiggyBank, Coins, Edit3, Check,
+  RefreshCw, ShieldCheck, Zap, Sparkles,
+  Download, X, Loader2, CheckCircle2, AlertCircle, HelpCircle
 } from 'lucide-react';
 import { useLedger } from '../context/LedgerContext';
 import {
   SectionHeader, GhostButton, FormCard,
   TextField, SelectField, ConfirmDelete,
 } from './ui';
-import { fmtBRL } from '../lib/ledger';
+import { fmtBRL, fmtDate, toLocalISO } from '../lib/ledger';
 import type { AccountType } from '../types/ledger';
 
 const TYPE_ICONS: Record<AccountType, React.ElementType> = {
@@ -55,7 +57,20 @@ function getInstitutionPalette(inst: string, type: AccountType) {
 }
 
 export const ContasTab: React.FC = () => {
-  const { state, totals, addAccount, deleteAccount, updateAccountBalance, confirmingId, setConfirmingId } = useLedger();
+  const {
+    state,
+    totals,
+    addAccount,
+    deleteAccount,
+    updateAccountBalance,
+    confirmingId,
+    setConfirmingId,
+    openPluggyConnect,
+    syncPluggyItem,
+    syncAllPluggy,
+    disconnectPluggyItem,
+    isSyncingPluggy,
+  } = useLedger();
 
   const [formOpen, setFormOpen] = useState(false);
   const [nome, setNome] = useState('');
@@ -66,6 +81,16 @@ export const ContasTab: React.FC = () => {
   // Edição rápida de saldo
   const [editingBalanceId, setEditingBalanceId] = useState<string | null>(null);
   const [tempBalance, setTempBalance] = useState('');
+
+  // ID da conexão sendo sincronizada individualmente
+  const [syncingConnId, setSyncingConnId] = useState<string | null>(null);
+
+  // Importação direta por Item ID da Pluggy
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [customItemId, setCustomItemId] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -92,31 +117,284 @@ export const ContasTab: React.FC = () => {
     setEditingBalanceId(null);
   }
 
+  async function handleSyncSingle(id: string) {
+    setSyncingConnId(id);
+    try {
+      await syncPluggyItem(id);
+    } finally {
+      setSyncingConnId(null);
+    }
+  }
+
+  async function handleImportByItemId(e: React.FormEvent) {
+    e.preventDefault();
+    const cleanId = customItemId.trim();
+    if (!cleanId) return;
+
+    setImportLoading(true);
+    setImportError(null);
+    setImportSuccess(null);
+
+    try {
+      await syncPluggyItem(cleanId);
+      setImportSuccess('Instituição bancária e contas importadas com sucesso!');
+      setTimeout(() => {
+        setImportSuccess(null);
+        setImportModalOpen(false);
+        setCustomItemId('');
+      }, 1400);
+    } catch (err: any) {
+      setImportError(err.message || 'Item ID não encontrado ou inválido. Verifique o ID no painel da Pluggy.');
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  const connections = state.pluggyConnections || [];
+
   return (
     <div className="space-y-6">
-      {/* Resumo do Patrimônio Consolidado */}
+      {/* Resumo do Patrimônio Consolidado & Ações */}
       <div className="panel p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span className="text-[11.5px] font-semibold uppercase tracking-wider text-[#6E6E73] block mb-1">
-            Saldo Total Disponível em Contas
-          </span>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11.5px] font-semibold uppercase tracking-wider text-[#6E6E73]">
+              Saldo Total Disponível em Contas
+            </span>
+            {connections.length > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#59694A] bg-[#EBF2E4] px-2 py-0.5 rounded-full">
+                <ShieldCheck size={11} />
+                Open Finance Ativo
+              </span>
+            )}
+          </div>
           <div className="text-[28px] md:text-[34px] font-bold tracking-tight text-[#1D1D1F] font-mono leading-none">
             {fmtBRL(totals.saldoTotalContas)}
           </div>
           <p className="text-[12px] text-[#6E6E73] mt-2">
-            Reúne o saldo de todas as suas contas bancárias, carteiras digitais e dinheiro em espécie.
+            Reúne o saldo de todas as suas contas bancárias sincronizadas e manuais.
           </p>
         </div>
 
-        <button
-          onClick={() => setFormOpen(true)}
-          className="pressable inline-flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px] font-semibold text-white self-start md:self-auto hover:brightness-95"
-          style={{ background: '#59694A', border: 'none', cursor: 'pointer' }}
-        >
-          <Plus size={15} strokeWidth={2.5} />
-          <span>Nova Conta / Carteira</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap self-start md:self-auto">
+          {connections.length > 0 && (
+            <button
+              onClick={() => syncAllPluggy()}
+              disabled={isSyncingPluggy}
+              className="pressable inline-flex items-center gap-2 px-3.5 py-2.5 rounded-[12px] text-[12.5px] font-medium text-[#1D1D1F] bg-[#F2F2F7] hover:bg-[#E5E5EA] transition-all disabled:opacity-50"
+              style={{ border: 'none', cursor: 'pointer' }}
+              title="Atualizar saldos e lançamentos de todas as instituições conectadas"
+            >
+              <RefreshCw size={14} className={isSyncingPluggy ? 'animate-spin text-[#59694A]' : ''} />
+              <span>{isSyncingPluggy ? 'Sincronizando...' : 'Sincronizar Tudo'}</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => openPluggyConnect()}
+            className="pressable inline-flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px] font-semibold text-white shadow-sm hover:brightness-95"
+            style={{ background: '#59694A', border: 'none', cursor: 'pointer' }}
+          >
+            <Zap size={14} className="fill-white" />
+            <span>Conectar Banco (Open Finance)</span>
+          </button>
+
+          <button
+            onClick={() => setImportModalOpen(true)}
+            className="pressable inline-flex items-center gap-1.5 px-3 py-2.5 rounded-[12px] text-[12.5px] font-medium text-[#1D1D1F] bg-[#F2F2F7] hover:bg-[#E5E5EA] transition-all"
+            style={{ border: 'none', cursor: 'pointer' }}
+            title="Importar banco existente pelo Item ID do painel da Pluggy"
+          >
+            <Download size={13} />
+            <span>Importar por ID</span>
+          </button>
+
+          <button
+            onClick={() => setFormOpen(true)}
+            className="pressable inline-flex items-center gap-1.5 px-3 py-2.5 rounded-[12px] text-[12.5px] font-medium text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-[#F2F2F7] transition-all"
+            style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+          >
+            <Plus size={14} strokeWidth={2.5} />
+            <span>Manual</span>
+          </button>
+        </div>
       </div>
+
+      {/* Seção de Conexões Open Finance */}
+      {connections.length > 0 ? (
+        <div className="panel p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-[8px] bg-[#EBF2E4] text-[#59694A] flex items-center justify-center">
+                <ShieldCheck size={16} />
+              </div>
+              <div>
+                <h3 className="text-[13.5px] font-bold text-[#1D1D1F]">
+                  Bancos & Instituições Conectadas ({connections.length})
+                </h3>
+                <p className="text-[11.5px] text-[#8E8E93]">
+                  Sincronização bancária automática e segura via Pluggy
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setImportModalOpen(true)}
+                className="pressable text-[12px] font-medium text-[#6E6E73] hover:text-[#1D1D1F] transition-colors"
+                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+              >
+                Importar por ID
+              </button>
+              <span className="text-[#E5E5EA]">·</span>
+              <button
+                onClick={() => openPluggyConnect()}
+                className="pressable text-[12px] font-semibold text-[#59694A] hover:underline"
+                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+              >
+                + Conectar outro banco
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {connections.map(conn => {
+              const isSyncingThis = isSyncingPluggy && syncingConnId === conn.id;
+              const formattedSync = conn.lastSyncAt
+                ? fmtDate(toLocalISO(new Date(conn.lastSyncAt)))
+                : 'Pendente';
+
+              return (
+                <div
+                  key={conn.id}
+                  className="rounded-[14px] border border-[#E5E5EA] bg-[#FBFBFC] p-4 flex flex-col justify-between gap-3 hover:border-[#D1D1D6] transition-all"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {conn.connectorImageUrl ? (
+                        <div
+                          className="w-9 h-9 rounded-[10px] p-1.5 flex items-center justify-center shrink-0 border"
+                          style={{
+                            backgroundColor: '#FFFFFF',
+                            borderColor: '#E5E5EA',
+                          }}
+                        >
+                          <img
+                            src={conn.connectorImageUrl}
+                            alt={conn.connectorName}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 border text-white font-bold text-[13px]"
+                          style={{
+                            backgroundColor: conn.connectorPrimaryColor || '#59694A',
+                            borderColor: '#E5E5EA',
+                          }}
+                        >
+                          {conn.connectorName.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <div className="text-[13.5px] font-bold text-[#1D1D1F] truncate">
+                          {conn.connectorName}
+                        </div>
+                        <div className="text-[11px] text-[#8E8E93] truncate">
+                          {conn.accountsCount || 1} conta(s) · Sincronizado em {formattedSync}
+                        </div>
+                      </div>
+                    </div>
+
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0"
+                      style={{
+                        backgroundColor: conn.status === 'LOGIN_ERROR' ? '#FDF2F2' : '#EBF2E4',
+                        color: conn.status === 'LOGIN_ERROR' ? '#C24138' : '#59694A',
+                      }}
+                    >
+                      {conn.status === 'LOGIN_ERROR' ? 'Atenção' : 'Conectado'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-[#F2F2F7]">
+                    <button
+                      onClick={() => handleSyncSingle(conn.id)}
+                      disabled={isSyncingThis}
+                      className="pressable inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#59694A] hover:brightness-90 transition-all disabled:opacity-50"
+                      style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                    >
+                      <RefreshCw size={12} className={isSyncingThis ? 'animate-spin' : ''} />
+                      <span>{isSyncingThis ? 'Atualizando...' : 'Atualizar Saldo'}</span>
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openPluggyConnect(conn.id)}
+                        className="text-[11px] font-medium text-[#8E8E93] hover:text-[#1D1D1F] transition-colors"
+                        style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                        title="Revalidar credenciais com a instituição"
+                      >
+                        Reconectar
+                      </button>
+                      <span className="text-[#E5E5EA]">·</span>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Deseja desconectar ${conn.connectorName}? As contas locais serão mantidas.`)) {
+                            disconnectPluggyItem(conn.id);
+                          }
+                        }}
+                        className="text-[11px] font-medium text-[#C24138] hover:underline transition-colors"
+                        style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                        title="Desconectar do Open Finance"
+                      >
+                        Desconectar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="panel p-5 bg-gradient-to-r from-[#FBFDF9] to-[#F5F8F2] border border-[#DCE8D2] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-[12px] bg-[#EBF2E4] text-[#59694A] flex items-center justify-center shrink-0 border border-[#C8D6B5]">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <h4 className="text-[14px] font-bold text-[#1D1D1F]">
+                Conecte seus bancos reais via Open Finance
+              </h4>
+              <p className="text-[12px] text-[#6E6E73] mt-0.5 max-w-xl">
+                Sincronize saldos, faturas de cartão e transações do Nubank, Itaú, Inter e outros bancos com 1 clique, sem precisar lançar nada manualmente.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              onClick={() => setImportModalOpen(true)}
+              className="pressable inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[12.5px] font-medium text-[#1D1D1F] bg-[#FFFFFF] border border-[#DCE8D2] hover:bg-[#F5F5F7] transition-all"
+              style={{ cursor: 'pointer' }}
+              title="Importar banco já conectado no painel da Pluggy pelo Item ID"
+            >
+              <Download size={13} />
+              <span>Importar por Item ID</span>
+            </button>
+            <button
+              onClick={() => openPluggyConnect()}
+              className="pressable inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-[12.5px] font-semibold text-white hover:brightness-95 shadow-sm"
+              style={{ background: '#59694A', border: 'none', cursor: 'pointer' }}
+            >
+              <Zap size={13} className="fill-white" />
+              <span>Conectar Banco Agora</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Formulário de Nova Conta */}
       {formOpen && (
@@ -166,7 +444,7 @@ export const ContasTab: React.FC = () => {
 
               <div className="flex justify-end gap-2 pt-2">
                 <GhostButton onClick={() => setFormOpen(false)}>Cancelar</GhostButton>
-                <GhostButton tone="paid" onClick={() => {}}>Salvar conta</GhostButton>
+                <GhostButton tone="paid" type="submit">Salvar conta</GhostButton>
               </div>
             </FormCard>
           </form>
@@ -221,8 +499,16 @@ export const ContasTab: React.FC = () => {
                         <Icon size={18} strokeWidth={1.8} />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[14px] font-bold text-[#1D1D1F] truncate">
-                          {acc.instituicao}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[14px] font-bold text-[#1D1D1F] truncate">
+                            {acc.instituicao}
+                          </span>
+                          {acc.pluggyAccountId && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9.5px] font-semibold text-[#59694A] bg-[#EBF2E4]">
+                              <ShieldCheck size={9.5} />
+                              Open Finance
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11.5px] text-[#6E6E73] truncate">
                           {acc.nome} · {TYPE_LABELS[acc.tipo]}
@@ -300,6 +586,117 @@ export const ContasTab: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal para Importação Direta por Item ID da Pluggy */}
+      {importModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !importLoading && setImportModalOpen(false)}
+          />
+
+          <div className="relative z-10 bg-white rounded-[20px] shadow-2xl border border-[#E5E5EA] p-6 max-w-lg w-full">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-[12px] bg-[#EBF2E4] text-[#59694A] flex items-center justify-center shrink-0 border border-[#C8D6B5]">
+                  <Download size={18} />
+                </div>
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#1D1D1F]">
+                    Importar do Painel da Pluggy
+                  </h3>
+                  <p className="text-[12px] text-[#6E6E73]">
+                    Vincule um banco que você já conectou em dashboard.pluggy.ai
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setImportModalOpen(false)}
+                disabled={importLoading}
+                className="text-[#8E8E93] hover:text-[#1D1D1F] p-1 rounded-full hover:bg-[#F2F2F7] transition-all"
+                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-[#F9F9FB] rounded-[12px] border border-[#E5E5EA] mb-4 text-[12px] text-[#6E6E73] space-y-1.5">
+              <div className="flex items-center gap-1.5 font-semibold text-[#1D1D1F]">
+                <HelpCircle size={14} className="text-[#59694A]" />
+                <span>Onde encontro o Item ID?</span>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 pl-1 text-[11.5px] leading-relaxed">
+                <li>Acesse seu painel em <strong>dashboard.pluggy.ai</strong></li>
+                <li>Clique em <strong>Items</strong> ou na instituição conectada</li>
+                <li>Copie o campo <strong>Item ID</strong> (formato UUID, ex: <code className="bg-[#E5E5EA] px-1 py-0.5 rounded text-[10.5px]">6d4c2b91-1234-4567-89ab-cdef01234567</code>)</li>
+              </ol>
+            </div>
+
+            <form onSubmit={handleImportByItemId} className="space-y-4">
+              <div>
+                <label className="block text-[12px] font-medium text-[#1D1D1F] mb-1.5">
+                  Item ID da Conexão
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Cole aqui o Item ID (UUID)"
+                  value={customItemId}
+                  onChange={e => setCustomItemId(e.target.value)}
+                  disabled={importLoading}
+                  className="w-full px-3.5 py-2.5 rounded-[12px] border border-[#D1D1D6] focus:border-[#59694A] focus:outline-none text-[13px] font-mono"
+                />
+              </div>
+
+              {importError && (
+                <div className="p-3 rounded-[10px] bg-[#FDF2F2] border border-[#F9D5D5] flex items-start gap-2 text-[12px] text-[#C24138]">
+                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                  <span>{importError}</span>
+                </div>
+              )}
+
+              {importSuccess && (
+                <div className="p-3 rounded-[10px] bg-[#EBF2E4] border border-[#C8D6B5] flex items-start gap-2 text-[12px] text-[#59694A] font-medium">
+                  <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
+                  <span>{importSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setImportModalOpen(false)}
+                  disabled={importLoading}
+                  className="px-4 py-2 rounded-[10px] text-[12.5px] font-medium text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-[#F2F2F7] transition-all"
+                  style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={importLoading || !customItemId.trim()}
+                  className="pressable inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-[12.5px] font-semibold text-white hover:brightness-95 disabled:opacity-50"
+                  style={{ background: '#59694A', border: 'none', cursor: 'pointer' }}
+                >
+                  {importLoading ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Importando dados...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download size={14} />
+                      <span>Importar e Sincronizar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

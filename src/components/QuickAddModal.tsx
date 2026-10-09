@@ -56,13 +56,9 @@ export const QuickAddModal: React.FC = () => {
       };
 
       let updatedAccounts = state.accounts || [];
-      let targetAccountId = accountId;
-      if (!targetAccountId && updatedAccounts.length > 0) {
-        targetAccountId = updatedAccounts[0].id;
-      }
-      if (targetAccountId && updatedAccounts.length > 0) {
+      if (accountId) {
         updatedAccounts = updatedAccounts.map(acc =>
-          acc.id === targetAccountId ? { ...acc, saldo: acc.saldo - valNum } : acc
+          acc.id === accountId ? { ...acc, saldo: acc.saldo - valNum } : acc
         );
       }
 
@@ -85,15 +81,11 @@ export const QuickAddModal: React.FC = () => {
         accountId: accountId || undefined,
       };
 
-      // Se houver contas, soma o valor ao saldo da conta vinculada (ou primeira conta)
+      // Soma o valor ao saldo da conta vinculada, se houver
       let updatedAccounts = state.accounts || [];
-      let targetAccountId = accountId;
-      if (!targetAccountId && updatedAccounts.length > 0) {
-        targetAccountId = updatedAccounts[0].id;
-      }
-      if (targetAccountId && updatedAccounts.length > 0) {
+      if (accountId) {
         updatedAccounts = updatedAccounts.map(acc =>
-          acc.id === targetAccountId ? { ...acc, saldo: acc.saldo + valNum } : acc
+          acc.id === accountId ? { ...acc, saldo: acc.saldo + valNum } : acc
         );
       }
 

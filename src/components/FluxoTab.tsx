@@ -96,17 +96,11 @@ export const FluxoTab: React.FC = () => {
     const isReceiving = !item.recebido;
     const income = state.income.map(r => r.id === item.id ? { ...r, recebido: !r.recebido } : r);
 
-    // Se tiver contas cadastradas, credita ou estorna na conta vinculada (ou na primeira se não houver vinculada)
+    // Se tiver conta vinculada, credita ou estorna
     let updatedAccounts = state.accounts || [];
-    let targetAccountId = item.accountId;
-
-    if (!targetAccountId && updatedAccounts.length > 0) {
-      targetAccountId = updatedAccounts[0].id;
-    }
-
-    if (targetAccountId && updatedAccounts.length > 0) {
+    if (item.accountId) {
       updatedAccounts = updatedAccounts.map(acc => {
-        if (acc.id === targetAccountId) {
+        if (acc.id === item.accountId) {
           return {
             ...acc,
             saldo: isReceiving ? acc.saldo + item.valor : acc.saldo - item.valor,
@@ -286,7 +280,18 @@ export const FluxoTab: React.FC = () => {
   }
 
   function deleteExpense(id: string) {
-    persist({ ...state, fixedExpenses: state.fixedExpenses.filter(g => g.id !== id) });
+    const item = state.fixedExpenses.find(g => g.id === id);
+    let updatedAccounts = state.accounts || [];
+    if (item?.pago && item.accountId) {
+      updatedAccounts = updatedAccounts.map(acc =>
+        acc.id === item.accountId ? { ...acc, saldo: acc.saldo + item.valor } : acc
+      );
+    }
+    persist({
+      ...state,
+      accounts: updatedAccounts,
+      fixedExpenses: state.fixedExpenses.filter(g => g.id !== id),
+    });
     setConfirmingId(null);
   }
 

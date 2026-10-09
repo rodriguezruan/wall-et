@@ -8,6 +8,7 @@ import { DividasTab } from './components/DividasTab';
 import { ParcelamentosTab } from './components/ParcelamentosTab';
 import { HistoricoTab } from './components/HistoricoTab';
 import { QuickAddModal } from './components/QuickAddModal';
+import { PluggyConnectModal } from './components/PluggyConnectModal';
 import type { TabId } from './types/ledger';
 import {
   Wallet, Repeat, Receipt, Landmark,
@@ -283,6 +284,9 @@ function AppShell() {
 
           {/* Modal de Lançamento Rápido */}
           <QuickAddModal />
+
+          {/* Modal do Pluggy Connect (Open Finance) */}
+          <PluggyConnectModal />
 
           {/* Notificação Flutuante de Atualização */}
           <UpdateNotification
