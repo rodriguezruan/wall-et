@@ -247,9 +247,11 @@ export function computeTotals(
   const saldoLivreMensal = rendaTotalMes - comprometimentoMensal;
 
   // Saldo total disponível em contas ou caixa
+  // Cartão de crédito não é dinheiro disponível (o saldo dele é dívida), então fica de fora
+  const contasDeSaldo = (state.accounts || []).filter(a => a.tipo !== 'cartao');
   let saldoTotalContas = 0;
-  if (state.accounts && state.accounts.length > 0) {
-    saldoTotalContas = state.accounts.reduce((acc, a) => acc + (a.saldo || 0), 0);
+  if (contasDeSaldo.length > 0) {
+    saldoTotalContas = contasDeSaldo.reduce((acc, a) => acc + (a.saldo || 0), 0);
   } else {
     saldoTotalContas = rendaRecebida - faturasPagas - gastosFixosPagos;
   }
@@ -335,14 +337,16 @@ export function computeCategoryBreakdown(
     .sort((a, b) => b.valor - a.valor);
 }
 
-function deduplicateUnpaidItems<T extends { id: string; nome: string; valor: number }>(
+// Remove apenas cópias de itens recorrentes gerados em duplicidade (bug antigo ao marcar/desmarcar).
+// Itens avulsos iguais são legítimos (ex: dois "Uber R$ 20" no mesmo mês) e são mantidos.
+function deduplicateUnpaidItems<T extends { id: string; nome: string; valor: number; recorrente: boolean }>(
   items: T[],
   getDate: (item: T) => string,
   isPaidOrReceived: (item: T) => boolean
 ): T[] {
   const seenKeys = new Set<string>();
   return items.filter(item => {
-    if (isPaidOrReceived(item)) return true;
+    if (isPaidOrReceived(item) || !item.recorrente) return true;
     const month = (getDate(item) || '').slice(0, 7);
     const key = `${item.nome.trim().toLowerCase()}__${item.valor}__${month}`;
     if (seenKeys.has(key)) {
@@ -353,41 +357,75 @@ function deduplicateUnpaidItems<T extends { id: string; nome: string; valor: num
   });
 }
 
+function normalizeState(parsed: Partial<LedgerState>): LedgerState {
+  const sanitizedIncome = deduplicateUnpaidItems<IncomeItem>(
+    (parsed.income || []) as IncomeItem[],
+    r => r.data,
+    r => !!r.recebido
+  );
+  const sanitizedFixedExpenses = deduplicateUnpaidItems<FixedExpense>(
+    (parsed.fixedExpenses || []) as FixedExpense[],
+    g => g.data,
+    g => !!g.pago
+  );
+  const sanitizedBills = deduplicateUnpaidItems<Bill>(
+    (parsed.bills || []) as Bill[],
+    b => b.vencimento,
+    b => !!b.pago
+  );
+
+  return {
+    ...EMPTY_STATE,
+    ...parsed,
+    income: sanitizedIncome,
+    fixedExpenses: sanitizedFixedExpenses,
+    bills: sanitizedBills,
+    userProfile: parsed.userProfile || { name: 'Ruan', onboarded: true },
+    accounts: parsed.accounts || [],
+  };
+}
+
 export function loadState(): LedgerState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const sanitizedIncome = deduplicateUnpaidItems<IncomeItem>(
-        (parsed.income || []) as IncomeItem[],
-        r => r.data,
-        r => !!r.recebido
-      );
-      const sanitizedFixedExpenses = deduplicateUnpaidItems<FixedExpense>(
-        (parsed.fixedExpenses || []) as FixedExpense[],
-        g => g.data,
-        g => !!g.pago
-      );
-      const sanitizedBills = deduplicateUnpaidItems<Bill>(
-        (parsed.bills || []) as Bill[],
-        b => b.vencimento,
-        b => !!b.pago
-      );
-
-      return {
-        ...EMPTY_STATE,
-        ...parsed,
-        income: sanitizedIncome,
-        fixedExpenses: sanitizedFixedExpenses,
-        bills: sanitizedBills,
-        userProfile: parsed.userProfile || { name: 'Ruan', onboarded: true },
-        accounts: parsed.accounts || [],
-      };
-    }
+    if (raw) return normalizeState(JSON.parse(raw));
   } catch {
     // ignore
   }
   return EMPTY_STATE;
+}
+
+const BACKUP_FORMAT = 'wall-et-backup';
+
+export function serializeBackup(state: LedgerState): string {
+  return JSON.stringify(
+    { format: BACKUP_FORMAT, version: 1, exportedAt: new Date().toISOString(), data: state },
+    null,
+    2
+  );
+}
+
+/** Lê um arquivo de backup exportado pelo app. Lança erro se o conteúdo não for válido. */
+export function parseBackup(text: string): LedgerState {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('O arquivo não é um JSON válido.');
+  }
+  const root = parsed as { format?: string; data?: Record<string, unknown> };
+  // Aceita o formato de backup e também o JSON cru do localStorage
+  const data = (root?.format === BACKUP_FORMAT ? root.data : root) as Record<string, unknown> | undefined;
+  const listas = ['accounts', 'bills', 'debts', 'installments', 'income', 'fixedExpenses', 'history'];
+  if (!data || typeof data !== 'object' || !listas.some(k => Array.isArray(data[k]))) {
+    throw new Error('O arquivo não parece ser um backup do Wall-Et.');
+  }
+  for (const k of listas) {
+    if (data[k] !== undefined && !Array.isArray(data[k])) {
+      throw new Error(`Backup inválido: o campo "${k}" deveria ser uma lista.`);
+    }
+  }
+  return normalizeState(data as Partial<LedgerState>);
 }
 
 export function saveState(state: LedgerState): void {

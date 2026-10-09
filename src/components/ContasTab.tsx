@@ -115,6 +115,7 @@ export const ContasTab: React.FC = () => {
           </div>
           <p className="text-[12px] text-[#6E6E73] mt-2">
             Reúne o saldo de todas as suas contas e carteiras.
+            {state.accounts?.some(a => a.tipo === 'cartao') && ' Cartões de crédito não entram no total.'}
           </p>
         </div>
 
@@ -263,8 +264,11 @@ export const ContasTab: React.FC = () => {
 
                   {/* Saldo e Ajuste */}
                   <div className="pt-2.5 border-t border-[#F2F2F7] flex items-baseline justify-between gap-2">
-                    <span className="text-[11px] font-medium uppercase tracking-wider text-[#8E8E93]">
-                      Saldo Atual
+                    <span
+                      className="text-[11px] font-medium uppercase tracking-wider text-[#8E8E93]"
+                      title={acc.tipo === 'cartao' ? 'Cartão de crédito não entra no saldo total disponível' : undefined}
+                    >
+                      {acc.tipo === 'cartao' ? 'Saldo (fora do total)' : 'Saldo Atual'}
                     </span>
 
                     {isEditing ? (
