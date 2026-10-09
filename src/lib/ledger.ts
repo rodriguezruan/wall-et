@@ -22,7 +22,6 @@ export const EMPTY_STATE: LedgerState = {
   income: [],
   fixedExpenses: [],
   history: [],
-  pluggyConnections: [],
 };
 
 export function uid(): string {
@@ -383,7 +382,6 @@ export function loadState(): LedgerState {
         bills: sanitizedBills,
         userProfile: parsed.userProfile || { name: 'Ruan', onboarded: true },
         accounts: parsed.accounts || [],
-        pluggyConnections: parsed.pluggyConnections || [],
       };
     }
   } catch {

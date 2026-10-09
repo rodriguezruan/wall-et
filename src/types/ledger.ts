@@ -2,17 +2,6 @@
 
 export type AccountType = 'corrente' | 'carteira' | 'cartao' | 'poupanca' | 'investimento';
 
-export interface PluggyItemConnection {
-  id: string; // itemId retornado pelo Pluggy
-  connectorId: number;
-  connectorName: string;
-  connectorImageUrl?: string;
-  connectorPrimaryColor?: string;
-  lastSyncAt: string; // ISO
-  status: string; // 'UPDATED' | 'UPDATING' | 'WAITING_USER_INPUT' | 'LOGIN_ERROR' etc.
-  accountsCount: number;
-}
-
 export interface Account {
   id: string;
   nome: string;
@@ -20,8 +9,6 @@ export interface Account {
   tipo: AccountType;
   saldo: number;
   cor?: string;
-  pluggyAccountId?: string;
-  pluggyItemId?: string;
 }
 
 export interface Bill {
@@ -33,8 +20,6 @@ export interface Bill {
   recorrente: boolean;
   pago: boolean;
   accountId?: string;
-  pluggyBillId?: string;
-  pluggyAccountId?: string;
 }
 
 export interface Debt {
@@ -67,7 +52,6 @@ export interface IncomeItem {
   recorrente: boolean;
   recebido: boolean;
   accountId?: string;
-  pluggyTransactionId?: string;
 }
 
 export interface FixedExpense {
@@ -79,7 +63,6 @@ export interface FixedExpense {
   recorrente: boolean;
   pago: boolean;
   accountId?: string;
-  pluggyTransactionId?: string;
 }
 
 export interface HistoryEntry {
@@ -106,7 +89,6 @@ export interface LedgerState {
   income: IncomeItem[];
   fixedExpenses: FixedExpense[];
   history: HistoryEntry[];
-  pluggyConnections?: PluggyItemConnection[];
 }
 
 export interface Totals {
