@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Wall-et",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "identifier": "com.wallet.finance",
   "build": {
     "frontendDist": "../dist",
@@ -50,7 +50,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJGRTA0MTBFMzdDMjgxNgpSV1FXS0h6akVBVCtBa0U2YWZxRGhRZXFrOVFrbFlHbDNIdjN6c2xPbk1GVzdzeFpuNlNKSmRhZwo=",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU2MUM0RDMxNTc5OTdFQUMKUldTc2ZwbFhNVTBjVm5KSXBZU3lCWUdLdHdYOE1TMHlVQmM4Y3V2SG9uQklhN0JqQWNSWThnaHoK",
       "endpoints": [
         "https://github.com/rodriguezruan/wall-et/releases/latest/download/latest.json"
       ]
