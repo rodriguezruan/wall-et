@@ -19,6 +19,9 @@ import { OnboardingScreen } from './components/OnboardingScreen';
 import { SplashScreen } from './components/SplashScreen';
 import { UpdateNotification } from './components/UpdateNotification';
 import { checkForAppUpdates, type UpdateInfo } from './lib/updater';
+import { exportBackup, pickBackupFile } from './lib/backup';
+import { parseBackup } from './lib/ledger';
+import { getVersion } from '@tauri-apps/api/app';
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'resumo',         label: 'Resumo',              icon: Wallet   },
@@ -45,7 +48,39 @@ const OLIVE     = '#59694A';
 const OLIVE_BG  = '#EBF2E4';
 
 function AppShell() {
-  const { state, tab, setTab, totals, openQuickAdd, updateUserProfile, resetAllData } = useLedger();
+  const { state, tab, setTab, totals, openQuickAdd, updateUserProfile, resetAllData, persist } = useLedger();
+  const [appVersion, setAppVersion] = useState('');
+
+  // Versão real do app (tauri.conf.json); no navegador não existe e fica oculta
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => {});
+  }, []);
+
+  async function handleExport() {
+    try {
+      if (await exportBackup(state)) {
+        alert('Backup salvo com sucesso!');
+      }
+    } catch (err) {
+      console.error('Erro ao exportar backup:', err);
+      alert('Não foi possível salvar o backup.');
+    }
+  }
+
+  async function handleImport() {
+    try {
+      const text = await pickBackupFile();
+      if (text === null) return;
+      const imported = parseBackup(text);
+      if (window.confirm('Importar este backup vai substituir TODOS os dados atuais. Deseja continuar?')) {
+        persist(imported);
+        alert('Backup importado com sucesso!');
+      }
+    } catch (err) {
+      console.error('Erro ao importar backup:', err);
+      alert(err instanceof Error ? err.message : 'Não foi possível importar o backup.');
+    }
+  }
   const [showSplash, setShowSplash] = useState(true);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
 
@@ -180,7 +215,7 @@ function AppShell() {
 
           {/* Indicador de Versão & Checagem Manual */}
           <div className="px-3.5 pt-2 pb-1 flex items-center justify-between text-[10px] text-[#8E8E93] border-t border-[#E5E5EA]">
-            <span>v0.1.0</span>
+            <span>{appVersion ? `v${appVersion}` : ''}</span>
             <button
               onClick={async () => {
                 const info = await checkForAppUpdates();
@@ -195,6 +230,28 @@ function AppShell() {
               title="Verificar se há novas versões disponíveis"
             >
               Verificar atualizações
+            </button>
+          </div>
+
+          {/* Backup dos dados (ficam só neste computador) */}
+          <div className="px-3.5 pb-1 flex items-center gap-1.5 text-[10px] text-[#8E8E93]">
+            <span>Backup:</span>
+            <button
+              onClick={handleExport}
+              className="hover:text-[#59694A] transition-colors"
+              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              title="Salvar todos os dados em um arquivo JSON"
+            >
+              Exportar
+            </button>
+            <span className="text-[#E5E5EA]">·</span>
+            <button
+              onClick={handleImport}
+              className="hover:text-[#59694A] transition-colors"
+              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              title="Restaurar dados a partir de um arquivo de backup"
+            >
+              Importar
             </button>
           </div>
 

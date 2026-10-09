@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus } from 'lucide-react';
 import { useLedger } from '../context/LedgerContext';
 import { TextField, SelectField, CheckboxField, CategoryChips } from './ui';
-import { uid, todayISO, DEFAULT_CATEGORIES } from '../lib/ledger';
+import { uid, todayISO, addMonthsISO, DEFAULT_CATEGORIES } from '../lib/ledger';
 
 export const QuickAddModal: React.FC = () => {
   const {
@@ -43,6 +43,15 @@ export const QuickAddModal: React.FC = () => {
     const valNum = parseFloat(valor);
     if (isNaN(valNum) || valNum <= 0) return;
 
+    // Lançamento recorrente já nasce pago/recebido, então gera aqui a ocorrência do próximo mês
+    // (nas abas isso acontece ao marcar como pago; aqui não há esse passo)
+    const nextDate = addMonthsISO(data, 1);
+    const existsNextMonth = (items: { nome: string; data: string }[]) =>
+      items.some(i =>
+        i.nome.trim().toLowerCase() === nome.trim().toLowerCase() &&
+        (i.data || '').slice(0, 7) === nextDate.slice(0, 7)
+      );
+
     if (tipo === 'despesa') {
       const expense = {
         id: uid(),
@@ -62,10 +71,15 @@ export const QuickAddModal: React.FC = () => {
         );
       }
 
+      const fixedExpenses = [...state.fixedExpenses, expense];
+      if (recorrente && !existsNextMonth(state.fixedExpenses)) {
+        fixedExpenses.push({ ...expense, id: uid(), data: nextDate, pago: false });
+      }
+
       let next = {
         ...state,
         accounts: updatedAccounts,
-        fixedExpenses: recorrente ? [...state.fixedExpenses, expense] : state.fixedExpenses,
+        fixedExpenses,
       };
       next = pushHistory(next, 'despesa-rapida', `Gasto: ${expense.nome}`, valNum);
       persist(next);
@@ -89,10 +103,15 @@ export const QuickAddModal: React.FC = () => {
         );
       }
 
+      const incomeList = [...state.income, income];
+      if (recorrente && !existsNextMonth(state.income)) {
+        incomeList.push({ ...income, id: uid(), data: nextDate, recebido: false });
+      }
+
       let next = {
         ...state,
         accounts: updatedAccounts,
-        income: [...state.income, income],
+        income: incomeList,
       };
       next = pushHistory(next, 'renda-rapida', `Renda: ${income.nome}`, valNum);
       persist(next);
