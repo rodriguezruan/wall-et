@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   Landmark, Plus, Trash2, CreditCard,
   Wallet, PiggyBank, Coins, Edit3, Check,
-  RefreshCw, ShieldCheck, Zap, Sparkles
+  RefreshCw, ShieldCheck, Zap, Sparkles,
+  Download, X, Loader2, CheckCircle2, AlertCircle, HelpCircle
 } from 'lucide-react';
 import { useLedger } from '../context/LedgerContext';
 import {
@@ -84,6 +85,13 @@ export const ContasTab: React.FC = () => {
   // ID da conexão sendo sincronizada individualmente
   const [syncingConnId, setSyncingConnId] = useState<string | null>(null);
 
+  // Importação direta por Item ID da Pluggy
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [customItemId, setCustomItemId] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!nome.trim() || !instituicao.trim()) return;
@@ -115,6 +123,30 @@ export const ContasTab: React.FC = () => {
       await syncPluggyItem(id);
     } finally {
       setSyncingConnId(null);
+    }
+  }
+
+  async function handleImportByItemId(e: React.FormEvent) {
+    e.preventDefault();
+    const cleanId = customItemId.trim();
+    if (!cleanId) return;
+
+    setImportLoading(true);
+    setImportError(null);
+    setImportSuccess(null);
+
+    try {
+      await syncPluggyItem(cleanId);
+      setImportSuccess('Instituição bancária e contas importadas com sucesso!');
+      setTimeout(() => {
+        setImportSuccess(null);
+        setImportModalOpen(false);
+        setCustomItemId('');
+      }, 1400);
+    } catch (err: any) {
+      setImportError(err.message || 'Item ID não encontrado ou inválido. Verifique o ID no painel da Pluggy.');
+    } finally {
+      setImportLoading(false);
     }
   }
 
@@ -168,6 +200,16 @@ export const ContasTab: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setImportModalOpen(true)}
+            className="pressable inline-flex items-center gap-1.5 px-3 py-2.5 rounded-[12px] text-[12.5px] font-medium text-[#1D1D1F] bg-[#F2F2F7] hover:bg-[#E5E5EA] transition-all"
+            style={{ border: 'none', cursor: 'pointer' }}
+            title="Importar banco existente pelo Item ID do painel da Pluggy"
+          >
+            <Download size={13} />
+            <span>Importar por ID</span>
+          </button>
+
+          <button
             onClick={() => setFormOpen(true)}
             className="pressable inline-flex items-center gap-1.5 px-3 py-2.5 rounded-[12px] text-[12.5px] font-medium text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-[#F2F2F7] transition-all"
             style={{ border: 'none', background: 'none', cursor: 'pointer' }}
@@ -196,13 +238,23 @@ export const ContasTab: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => openPluggyConnect()}
-              className="pressable text-[12px] font-semibold text-[#59694A] hover:underline"
-              style={{ border: 'none', background: 'none', cursor: 'pointer' }}
-            >
-              + Adicionar outro banco
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setImportModalOpen(true)}
+                className="pressable text-[12px] font-medium text-[#6E6E73] hover:text-[#1D1D1F] transition-colors"
+                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+              >
+                Importar por ID
+              </button>
+              <span className="text-[#E5E5EA]">·</span>
+              <button
+                onClick={() => openPluggyConnect()}
+                className="pressable text-[12px] font-semibold text-[#59694A] hover:underline"
+                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+              >
+                + Conectar outro banco
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -322,14 +374,25 @@ export const ContasTab: React.FC = () => {
             </div>
           </div>
 
-          <button
-            onClick={() => openPluggyConnect()}
-            className="pressable inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-[12.5px] font-semibold text-white shrink-0 hover:brightness-95"
-            style={{ background: '#59694A', border: 'none', cursor: 'pointer' }}
-          >
-            <Zap size={13} className="fill-white" />
-            <span>Conectar Primeiro Banco</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              onClick={() => setImportModalOpen(true)}
+              className="pressable inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[12.5px] font-medium text-[#1D1D1F] bg-[#FFFFFF] border border-[#DCE8D2] hover:bg-[#F5F5F7] transition-all"
+              style={{ cursor: 'pointer' }}
+              title="Importar banco já conectado no painel da Pluggy pelo Item ID"
+            >
+              <Download size={13} />
+              <span>Importar por Item ID</span>
+            </button>
+            <button
+              onClick={() => openPluggyConnect()}
+              className="pressable inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-[12.5px] font-semibold text-white hover:brightness-95 shadow-sm"
+              style={{ background: '#59694A', border: 'none', cursor: 'pointer' }}
+            >
+              <Zap size={13} className="fill-white" />
+              <span>Conectar Banco Agora</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -523,6 +586,117 @@ export const ContasTab: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal para Importação Direta por Item ID da Pluggy */}
+      {importModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !importLoading && setImportModalOpen(false)}
+          />
+
+          <div className="relative z-10 bg-white rounded-[20px] shadow-2xl border border-[#E5E5EA] p-6 max-w-lg w-full">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-[12px] bg-[#EBF2E4] text-[#59694A] flex items-center justify-center shrink-0 border border-[#C8D6B5]">
+                  <Download size={18} />
+                </div>
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#1D1D1F]">
+                    Importar do Painel da Pluggy
+                  </h3>
+                  <p className="text-[12px] text-[#6E6E73]">
+                    Vincule um banco que você já conectou em dashboard.pluggy.ai
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setImportModalOpen(false)}
+                disabled={importLoading}
+                className="text-[#8E8E93] hover:text-[#1D1D1F] p-1 rounded-full hover:bg-[#F2F2F7] transition-all"
+                style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-[#F9F9FB] rounded-[12px] border border-[#E5E5EA] mb-4 text-[12px] text-[#6E6E73] space-y-1.5">
+              <div className="flex items-center gap-1.5 font-semibold text-[#1D1D1F]">
+                <HelpCircle size={14} className="text-[#59694A]" />
+                <span>Onde encontro o Item ID?</span>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 pl-1 text-[11.5px] leading-relaxed">
+                <li>Acesse seu painel em <strong>dashboard.pluggy.ai</strong></li>
+                <li>Clique em <strong>Items</strong> ou na instituição conectada</li>
+                <li>Copie o campo <strong>Item ID</strong> (formato UUID, ex: <code className="bg-[#E5E5EA] px-1 py-0.5 rounded text-[10.5px]">6d4c2b91-1234-4567-89ab-cdef01234567</code>)</li>
+              </ol>
+            </div>
+
+            <form onSubmit={handleImportByItemId} className="space-y-4">
+              <div>
+                <label className="block text-[12px] font-medium text-[#1D1D1F] mb-1.5">
+                  Item ID da Conexão
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Cole aqui o Item ID (UUID)"
+                  value={customItemId}
+                  onChange={e => setCustomItemId(e.target.value)}
+                  disabled={importLoading}
+                  className="w-full px-3.5 py-2.5 rounded-[12px] border border-[#D1D1D6] focus:border-[#59694A] focus:outline-none text-[13px] font-mono"
+                />
+              </div>
+
+              {importError && (
+                <div className="p-3 rounded-[10px] bg-[#FDF2F2] border border-[#F9D5D5] flex items-start gap-2 text-[12px] text-[#C24138]">
+                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                  <span>{importError}</span>
+                </div>
+              )}
+
+              {importSuccess && (
+                <div className="p-3 rounded-[10px] bg-[#EBF2E4] border border-[#C8D6B5] flex items-start gap-2 text-[12px] text-[#59694A] font-medium">
+                  <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
+                  <span>{importSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setImportModalOpen(false)}
+                  disabled={importLoading}
+                  className="px-4 py-2 rounded-[10px] text-[12.5px] font-medium text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-[#F2F2F7] transition-all"
+                  style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={importLoading || !customItemId.trim()}
+                  className="pressable inline-flex items-center gap-2 px-4 py-2 rounded-[10px] text-[12.5px] font-semibold text-white hover:brightness-95 disabled:opacity-50"
+                  style={{ background: '#59694A', border: 'none', cursor: 'pointer' }}
+                >
+                  {importLoading ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Importando dados...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download size={14} />
+                      <span>Importar e Sincronizar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

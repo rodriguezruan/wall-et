@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLedger } from '../context/LedgerContext';
 import { PluggyConnect } from 'react-pluggy-connect';
 import { Loader2, AlertCircle, CheckCircle2, ShieldCheck, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
 export const PluggyConnectModal: React.FC = () => {
   const {
@@ -13,6 +14,33 @@ export const PluggyConnectModal: React.FC = () => {
   } = useLedger();
 
   const [syncSuccessMsg, setSyncSuccessMsg] = useState<string | null>(null);
+
+  // Bancos que usam Open Finance regulado (OAuth) pedem para abrir a tela de
+  // login/consentimento em uma pop-up. O WebView do Tauri bloqueia a criação
+  // de pop-ups nativas (bug conhecido do WebView2/WKWebView), o que faz o
+  // widget "travar" na tela de autorização sem nunca abrir nada.
+  // Aqui a gente intercepta window.open enquanto o widget estiver aberto e
+  // manda a URL pro navegador padrão do sistema via plugin-opener, onde o
+  // usuário consegue concluir o login/consentimento normalmente.
+  useEffect(() => {
+    if (!pluggyModalState.token) return;
+
+    const originalOpen = window.open;
+    window.open = (url?: string | URL, ...rest: any[]) => {
+      if (url) {
+        const href = typeof url === 'string' ? url : url.toString();
+        openUrl(href).catch(err => {
+          console.error('Falha ao abrir navegador externo para autorização:', err);
+        });
+      }
+      // Retorna null pois não há uma janela real do webview pra devolver.
+      return null;
+    };
+
+    return () => {
+      window.open = originalOpen;
+    };
+  }, [pluggyModalState.token]);
 
   if (!pluggyModalState.isOpen) return null;
 
@@ -123,7 +151,11 @@ export const PluggyConnectModal: React.FC = () => {
 
         {/* Widget Oficial do Pluggy Connect (quando temos o token e não estamos em tela de carregamento/sucesso) */}
         {pluggyModalState.token && !syncSuccessMsg && (
-          <div className="relative z-10 w-full max-w-2xl">
+          <div className="relative z-10 w-full max-w-2xl space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-[11px] text-[#6E6E73] shadow-sm">
+              <ShieldCheck size={12} className="text-[#59694A] shrink-0" />
+              <span>Para alguns bancos, seu navegador padrão pode abrir para você concluir o login com segurança.</span>
+            </div>
             <PluggyConnect
               connectToken={pluggyModalState.token}
               includeSandbox={true}
