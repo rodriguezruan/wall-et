@@ -106,7 +106,15 @@ export const ParcelamentosTab: React.FC = () => {
   }
 
   function deleteInstallment(id: string) {
-    persist({ ...state, installments: state.installments.filter(i => i.id !== id) });
+    const inst = state.installments.find(i => i.id === id);
+    let updatedAccounts = state.accounts || [];
+    if (inst?.accountId && inst.parcelasPagas > 0) {
+      const estorno = inst.parcelasPagas * inst.valorParcela;
+      updatedAccounts = updatedAccounts.map(acc =>
+        acc.id === inst.accountId ? { ...acc, saldo: acc.saldo + estorno } : acc
+      );
+    }
+    persist({ ...state, accounts: updatedAccounts, installments: state.installments.filter(i => i.id !== id) });
     setConfirmingId(null);
     if (selectedInstId === id) setSelectedInstId(null);
   }

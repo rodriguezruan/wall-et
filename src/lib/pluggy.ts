@@ -7,7 +7,7 @@ import type {
   AccountType,
   PluggyItemConnection,
 } from '../types/ledger';
-import { uid, DEFAULT_CATEGORIES } from './ledger';
+import { uid, toLocalISO, DEFAULT_CATEGORIES } from './ledger';
 
 const PLUGGY_API_URL = 'https://api.pluggy.ai';
 
@@ -270,19 +270,60 @@ function mapAccountType(account: PluggyAccount): AccountType {
   return 'corrente';
 }
 
+export interface PluggySnapshot {
+  itemId: string;
+  item: PluggyItem;
+  accounts: {
+    account: PluggyAccount;
+    bills: PluggyBill[];
+    transactions: PluggyTransaction[];
+  }[];
+}
+
 /**
- * Sincroniza um Item do Pluggy com o estado do Wall-Et:
+ * Busca na API da Pluggy tudo o que é necessário para sincronizar um Item.
+ * Não toca no estado: o merge é feito depois por applyPluggySnapshot,
+ * sobre o estado mais recente (evita perder edições feitas durante a busca).
+ */
+export async function fetchPluggySnapshot(itemId: string): Promise<PluggySnapshot> {
+  const item = await fetchPluggyItem(itemId);
+  const pluggyAccounts = await fetchPluggyAccounts(itemId);
+
+  // 60 dias atrás para puxar transações recentes
+  const sixtyDaysAgo = new Date();
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+  const fromDate = toLocalISO(sixtyDaysAgo);
+
+  const accounts: PluggySnapshot['accounts'] = [];
+  for (const account of pluggyAccounts) {
+    // Se for cartão de crédito, busca faturas (fetchPluggyBills já trata falhas)
+    const bills = mapAccountType(account) === 'cartao' ? await fetchPluggyBills(account.id) : [];
+
+    let transactions: PluggyTransaction[] = [];
+    try {
+      transactions = await fetchPluggyTransactions(account.id, fromDate);
+    } catch {
+      // Prossegue se transações não puderem ser consultadas
+    }
+
+    accounts.push({ account, bills, transactions });
+  }
+
+  return { itemId, item, accounts };
+}
+
+/**
+ * Aplica um snapshot do Pluggy ao estado do Wall-Et (função pura):
  * - Atualiza ou cadastra contas
  * - Atualiza faturas de cartão
  * - Puxa transações recentes sem duplicatas
  * - Atualiza metadados da conexão
  */
-export async function syncPluggyItemData(
+export function applyPluggySnapshot(
   currentState: LedgerState,
-  itemId: string
-): Promise<LedgerState> {
-  const item = await fetchPluggyItem(itemId);
-  const pluggyAccounts = await fetchPluggyAccounts(itemId);
+  snapshot: PluggySnapshot
+): LedgerState {
+  const { itemId, item } = snapshot;
 
   const connectorName = item.connector?.name || 'Banco';
   const connectorImageUrl = item.connector?.imageUrl;
@@ -295,13 +336,8 @@ export async function syncPluggyItemData(
   let updatedIncome = [...(currentState.income || [])];
   let updatedExpenses = [...(currentState.fixedExpenses || [])];
 
-  // 60 dias atrás para puxar transações recentes
-  const sixtyDaysAgo = new Date();
-  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-  const fromDate = sixtyDaysAgo.toISOString().slice(0, 10);
-
   // Mapear cada conta do Pluggy
-  for (const pAcc of pluggyAccounts) {
+  for (const { account: pAcc, bills, transactions } of snapshot.accounts) {
     const accType = mapAccountType(pAcc);
     const accName = pAcc.name || pAcc.marketingName || (accType === 'cartao' ? `Cartão ${connectorName}` : `Conta ${connectorName}`);
 
@@ -342,7 +378,6 @@ export async function syncPluggyItemData(
     // Se for cartão de crédito, busca faturas
     if (accType === 'cartao') {
       try {
-        const bills = await fetchPluggyBills(pAcc.id);
         for (const bill of bills) {
           if (!bill.dueDate) continue;
           const dueIso = bill.dueDate.slice(0, 10);
@@ -384,8 +419,6 @@ export async function syncPluggyItemData(
 
     // Busca transações recentes da conta
     try {
-      const transactions = await fetchPluggyTransactions(pAcc.id, fromDate);
-
       for (const tx of transactions) {
         if (!tx.date || !tx.amount) continue;
         const txDate = tx.date.slice(0, 10);
@@ -449,7 +482,7 @@ export async function syncPluggyItemData(
     connectorPrimaryColor,
     lastSyncAt: new Date().toISOString(),
     status: item.status || 'UPDATED',
-    accountsCount: pluggyAccounts.length,
+    accountsCount: snapshot.accounts.length,
   };
 
   let updatedConnections: PluggyItemConnection[];

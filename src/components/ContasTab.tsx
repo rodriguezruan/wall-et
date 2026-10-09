@@ -10,7 +10,7 @@ import {
   SectionHeader, GhostButton, FormCard,
   TextField, SelectField, ConfirmDelete,
 } from './ui';
-import { fmtBRL, fmtDate } from '../lib/ledger';
+import { fmtBRL, fmtDate, toLocalISO } from '../lib/ledger';
 import type { AccountType } from '../types/ledger';
 
 const TYPE_ICONS: Record<AccountType, React.ElementType> = {
@@ -261,7 +261,7 @@ export const ContasTab: React.FC = () => {
             {connections.map(conn => {
               const isSyncingThis = isSyncingPluggy && syncingConnId === conn.id;
               const formattedSync = conn.lastSyncAt
-                ? fmtDate(conn.lastSyncAt.slice(0, 10))
+                ? fmtDate(toLocalISO(new Date(conn.lastSyncAt)))
                 : 'Pendente';
 
               return (
@@ -444,7 +444,7 @@ export const ContasTab: React.FC = () => {
 
               <div className="flex justify-end gap-2 pt-2">
                 <GhostButton onClick={() => setFormOpen(false)}>Cancelar</GhostButton>
-                <GhostButton tone="paid" onClick={() => {}}>Salvar conta</GhostButton>
+                <GhostButton tone="paid" type="submit">Salvar conta</GhostButton>
               </div>
             </FormCard>
           </form>

@@ -4,9 +4,11 @@ import { loadState, saveState, computeTotals, uid, todayISO, getAvailableMonths,
 import {
   isPluggyConfigured,
   createConnectToken,
-  syncPluggyItemData,
+  fetchPluggySnapshot,
+  applyPluggySnapshot,
   deletePluggyItem,
   triggerPluggySync,
+  type PluggySnapshot,
 } from '../lib/pluggy';
 
 interface PluggyModalState {
@@ -260,15 +262,20 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsSyncingPluggy(true);
     try {
       await triggerPluggySync(itemId);
-      const nextState = await syncPluggyItemData(state, itemId);
-      persist(nextState);
+      const snapshot = await fetchPluggySnapshot(itemId);
+      // Aplica sobre o estado mais recente para não perder edições feitas durante a busca
+      setState(prev => {
+        const next = applyPluggySnapshot(prev, snapshot);
+        saveState(next);
+        return next;
+      });
     } catch (err) {
       console.error('Erro ao sincronizar Pluggy item:', err);
       throw err;
     } finally {
       setIsSyncingPluggy(false);
     }
-  }, [state, persist]);
+  }, []);
 
   const syncAllPluggy = useCallback(async () => {
     const connections = state.pluggyConnections || [];
@@ -276,20 +283,25 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setIsSyncingPluggy(true);
     try {
-      let current = state;
+      const snapshots: PluggySnapshot[] = [];
       for (const conn of connections) {
         try {
           await triggerPluggySync(conn.id);
-          current = await syncPluggyItemData(current, conn.id);
+          snapshots.push(await fetchPluggySnapshot(conn.id));
         } catch (err) {
           console.error(`Erro ao sincronizar conexão ${conn.connectorName}:`, err);
         }
       }
-      persist(current);
+      // Aplica sobre o estado mais recente para não perder edições feitas durante a busca
+      setState(prev => {
+        const next = snapshots.reduce(applyPluggySnapshot, prev);
+        saveState(next);
+        return next;
+      });
     } finally {
       setIsSyncingPluggy(false);
     }
-  }, [state, persist]);
+  }, [state.pluggyConnections]);
 
   const disconnectPluggyItem = useCallback(async (itemId: string) => {
     try {
@@ -298,16 +310,19 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // ignore
     }
 
-    const nextState: LedgerState = {
-      ...state,
-      pluggyConnections: (state.pluggyConnections || []).filter(c => c.id !== itemId),
-      accounts: (state.accounts || []).map(a =>
-        a.pluggyItemId === itemId ? { ...a, pluggyItemId: undefined, pluggyAccountId: undefined } : a
-      ),
-    };
-    persist(nextState);
+    setState(prev => {
+      const next: LedgerState = {
+        ...prev,
+        pluggyConnections: (prev.pluggyConnections || []).filter(c => c.id !== itemId),
+        accounts: (prev.accounts || []).map(a =>
+          a.pluggyItemId === itemId ? { ...a, pluggyItemId: undefined, pluggyAccountId: undefined } : a
+        ),
+      };
+      saveState(next);
+      return next;
+    });
     setConfirmingId(null);
-  }, [state, persist]);
+  }, []);
 
   return (
     <LedgerContext.Provider

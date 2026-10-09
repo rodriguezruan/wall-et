@@ -26,7 +26,7 @@ export const PluggyConnectModal: React.FC = () => {
     if (!pluggyModalState.token) return;
 
     const originalOpen = window.open;
-    window.open = (url?: string | URL, ...rest: any[]) => {
+    window.open = (url?: string | URL) => {
       if (url) {
         const href = typeof url === 'string' ? url : url.toString();
         openUrl(href).catch(err => {

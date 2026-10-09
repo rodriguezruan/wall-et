@@ -115,12 +115,13 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({ icon: Icon, title,
 // ─── GhostButton ─────────────────────────────────────────────────────────────
 interface GhostButtonProps {
   children: React.ReactNode;
-  onClick: () => void;
+  onClick?: () => void;
   tone?: 'default' | 'paid' | 'debt';
   small?: boolean;
+  type?: 'button' | 'submit';
 }
 
-export const GhostButton: React.FC<GhostButtonProps> = ({ children, onClick, tone = 'default', small }) => {
+export const GhostButton: React.FC<GhostButtonProps> = ({ children, onClick, tone = 'default', small, type = 'button' }) => {
   const style: React.CSSProperties =
     tone === 'paid'
       ? { color: '#59694A', borderColor: '#C8D6B5', backgroundColor: '#F9FCF7' }
@@ -130,6 +131,7 @@ export const GhostButton: React.FC<GhostButtonProps> = ({ children, onClick, ton
 
   return (
     <button
+      type={type}
       onClick={onClick}
       className="pressable inline-flex items-center gap-1.5 border rounded-[50px] font-medium leading-none transition-all hover:brightness-98"
       style={{

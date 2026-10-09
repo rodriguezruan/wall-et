@@ -29,14 +29,23 @@ export function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
+// Formata no fuso local (toISOString usaria UTC e viraria o dia às 21h no Brasil)
+export function toLocalISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalISO(new Date());
 }
 
 export function addMonthsISO(iso: string, months: number): string {
-  const d = new Date(iso + 'T00:00:00');
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  // Limita o dia ao último dia do mês de destino (31/01 + 1 mês = 28/02, não 03/03)
+  const lastDay = new Date(y, m - 1 + months + 1, 0).getDate();
+  return toLocalISO(new Date(y, m - 1 + months, Math.min(d, lastDay)));
 }
 
 export function daysUntil(iso: string): number {
